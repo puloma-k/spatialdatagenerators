@@ -7,6 +7,7 @@ import queue
 import random as rand
 import sys
 from urllib import parse
+import gzip
 
 
 class Generator(ABC):
@@ -64,6 +65,8 @@ class PointGenerator(Generator):
         print ('<body>')
         print ('<h2>Generator Data</h2>')
 
+        compressed_data = b""
+
         prev_point = None
 
         i = 0
@@ -74,7 +77,10 @@ class PointGenerator(Generator):
                 prev_point = point
                 print (prev_point.to_string(self.output_format))
                 print ('<br></br>')
+                compressed_data += gzip.compress(bytes(prev_point.to_string(self.output_format), 'utf-8'))
                 i = i + 1
+                
+		
 
         print ('</body>')
         print ('</html>')
