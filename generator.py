@@ -7,7 +7,6 @@ import queue
 import random as rand
 import sys
 from urllib import parse
-import bz2
 
 
 class Generator(ABC):
