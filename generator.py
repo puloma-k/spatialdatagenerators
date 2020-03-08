@@ -9,7 +9,6 @@ import sys
 from urllib import parse
 import gzip
 
-
 class Generator(ABC):
 
     def __init__(self, card, geo, dim, dist, output_format):
@@ -56,35 +55,37 @@ class PointGenerator(Generator):
 
         return geometries
 
-    def generate_and_write(self):
-        print ("Content-type:text/html;charset=utf-8\r\n\r\n")
-        print ('<html>')
-        print ('<head>')
-        print ('<title>Generator Data</title>')
-        print ('</head>')
-        print ('<body>')
-        print ('<h2>Generator Data</h2>')
-
-        compressed_data = b""
-
+    def generate_and_write(self):         
+        o_file_name = "dat" + str(rand.randint(0,1000000)) + "." + self.output_format + ".gz"
+        o_file_path = "output/" + o_file_name
+        
+        sys.stdout.buffer.write(bytes("Content-type:application/x-gzip" + '\r\n', 'utf-8'))
+        sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + o_file_name + "\"" + '\r\n', 'utf-8'))        
         prev_point = None
-
         i = 0
-        while i < self.card:
-            point = self.generate_point(i, prev_point)
+        
+        with gzip.open(o_file_path, 'wt', 9, 'utf-8') as f_out:
+            while i < self.card:
+                point = self.generate_point(i, prev_point)
 
-            if self.is_valid_point(point):
-                prev_point = point
-                print (prev_point.to_string(self.output_format))
-                print ('<br></br>')
-                compressed_data += gzip.compress(bytes(prev_point.to_string(self.output_format), 'utf-8'))
-                i = i + 1
+                if self.is_valid_point(point):
+                    prev_point = point
+                    f_out.write(prev_point.to_string(self.output_format) + '\n')
+                    i = i + 1
+            
+        file_length = os.stat(o_file_path).st_size
+        sys.stdout.buffer.write(bytes("Content-Length: " + str(file_length) + '\r\n', 'utf-8'))
+        sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
+
+        with open(o_file_path, 'rb') as f_in:
+            while True:
+                chunk = f_in.read(4096)
+                if not chunk:
+                    break
+                sys.stdout.buffer.write(chunk)
                 
-		
-
-        print ('</body>')
-        print ('</html>')
-
+        os.remove(o_file_path)
+        
     @abstractmethod
     def generate_point(self, i, prev_point):
         pass
