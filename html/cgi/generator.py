@@ -8,6 +8,7 @@ import random as rand
 import sys
 from urllib import parse
 import gzip
+from math import log
 
 class Generator(ABC):
 
@@ -191,12 +192,14 @@ class ParcelGenerator(PointGenerator):
     def generate(self):
         geometries = []
         box = Box(0.0, 0.0, 1.0, 1.0)
-        boxes = queue.Queue(self.card)
-        boxes.put(box)
+        boxes = []
+        boxes.append(box)
+        tree_height = math.floor(log(self.card, 2))
+        boxes_generated = 0
 
-        while boxes.qsize() < self.card:
-            # Dequeue the queue to get a box
-            b = boxes.get()
+        while boxes_generated < self.card:
+            # Pop from the stack to get a box
+            b = boxes.pop()
 
             if b.w > b.h:
                 # Split vertically if width is bigger than height
@@ -208,18 +211,26 @@ class ParcelGenerator(PointGenerator):
                 split_size = b.h * rand.uniform(self.split_range, 1 - self.split_range)
                 b1 = Box(b.x, b.y, b.w, split_size)
                 b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
-
-            boxes.put(b1)
-            boxes.put(b2)
-
-        while not boxes.empty():
-            b = boxes.get()
-            b.w = b.w * (1.0 - rand.uniform(0.0, self.dither))
-            b.h = b.h * (1.0 - rand.uniform(0.0, self.dither))
-            geometries.append(b)
+                
+            if boxes_generated == self.card - 1:
+                dither_and_append(b1, geometries)
+                boxes_generated += 1
+            elif boxes_generated == self.card - 2:
+                dither_and_append(b1, geometries)
+                dither_and_append(b2, geometries)
+                boxes_generated += 2
+            else:
+                if len(boxes) <= tree_height - 1:
+                    boxes.append(b2)
+                    boxes.append(b1)
 
         return geometries
-
+    
+    def dither_and_append(self, b, geometries):
+        b.w = b.w * (1.0 - rand.uniform(0.0, self.dither))
+        b.h = b.h * (1.0 - rand.uniform(0.0, self.dither))
+        geometries.append(b)
+            
 
 class Geometry(ABC):
 
