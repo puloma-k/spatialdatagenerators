@@ -48,7 +48,6 @@ class PointGenerator(Generator):
         i = 0
         while i < self.card:
             point = self.generate_point(i, prev_point)
-
             if self.is_valid_point(point):
                 prev_point = point
                 geometries.append(prev_point)
@@ -62,19 +61,22 @@ class PointGenerator(Generator):
         
         sys.stdout.buffer.write(bytes("Content-type:application/x-gzip" + '\r\n', 'utf-8'))
         sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + o_file_name + "\"" + '\r\n', 'utf-8'))        
-        
-        prev_point = None
-        i = 0
+         
+#         prev_point = None
+#         i = 0
         
         with gzip.open(o_file_path, 'wt', 9, 'utf-8') as f_out:
-            while i < self.card:
-                point = self.generate_point(i, prev_point)
-
-                if self.is_valid_point(point):
-                    prev_point = point
-                    f_out.write(prev_point.to_string(self.output_format) + '\n')
-                    i = i + 1
-            
+            geometries = self.generate()
+            for point in geometries:
+                f_out.write(point.to_string(self.output_format) + '\n')
+#             while i < self.card:
+#                 point = self.generate_point(i, prev_point)
+# 
+#                 if self.is_valid_point(point):
+#                     prev_point = point
+#                     f_out.write(prev_point.to_string(self.output_format) + '\n')
+#                     i = i + 1
+        
         file_length = os.stat(o_file_path).st_size
         sys.stdout.buffer.write(bytes("Content-Length: " + str(file_length) + '\r\n', 'utf-8'))
         sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
@@ -200,29 +202,29 @@ class ParcelGenerator(PointGenerator):
         while boxes_generated < self.card:
             # Pop from the stack to get a box
             b = boxes.pop()
-
-            if b.w > b.h:
-                # Split vertically if width is bigger than height
-                split_size = b.w * rand.uniform(self.split_range, 1 - self.split_range)
-                b1 = Box(b.x, b.y, split_size, b.h)
-                b2 = Box(b.x + split_size, b.y, b.w - split_size, b.h)
-            else:
-                # Split horizontally if width is less than height
-                split_size = b.h * rand.uniform(self.split_range, 1 - self.split_range)
-                b1 = Box(b.x, b.y, b.w, split_size)
-                b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
-                
+            
             if boxes_generated == self.card - 1:
-                dither_and_append(b1, geometries)
+                self.dither_and_append(b, geometries)
                 boxes_generated += 1
-            elif boxes_generated == self.card - 2:
-                dither_and_append(b1, geometries)
-                dither_and_append(b2, geometries)
-                boxes_generated += 2
             else:
+                if b.w > b.h:
+                    # Split vertically if width is bigger than height
+                    split_size = b.w * rand.uniform(self.split_range, 1 - self.split_range)
+                    b1 = Box(b.x, b.y, split_size, b.h)
+                    b2 = Box(b.x + split_size, b.y, b.w - split_size, b.h)
+                else:
+                    # Split horizontally if width is less than height
+                    split_size = b.h * rand.uniform(self.split_range, 1 - self.split_range)
+                    b1 = Box(b.x, b.y, b.w, split_size)
+                    b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
+                    
                 if len(boxes) <= tree_height - 1:
                     boxes.append(b2)
                     boxes.append(b1)
+                else:
+                    self.dither_and_append(b1, geometries)
+                    self.dither_and_append(b2, geometries)
+                    boxes_generated += 2
 
         return geometries
     
@@ -230,6 +232,9 @@ class ParcelGenerator(PointGenerator):
         b.w = b.w * (1.0 - rand.uniform(0.0, self.dither))
         b.h = b.h * (1.0 - rand.uniform(0.0, self.dither))
         geometries.append(b)
+        
+    def generate_point(self, i, prev_point):
+        PointGenerator.generate_point(self, i, prev_point)
             
 
 class Geometry(ABC):
@@ -308,8 +313,8 @@ def main():
 #                       help='Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point.')
 #     parser.add_option('-f', '--format', type='string',
 #                       help='Output format. Currently the generator supports {csv, wkt}')
-
     url = os.environ["REQUEST_URI"]
+    #url = "http://localhost/cgi/generator.py?dist=parcel&card=5&geo=box&dim=2&fmt=csv&dith=0&sran=0.5"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query))
     oFilePath = "test"
