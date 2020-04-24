@@ -46,11 +46,13 @@ class PointGenerator(Generator):
         prev_point = None
 
         i = 0
+        
         while i < self.card:
             point = self.generate_point(i, prev_point)
             if self.is_valid_point(point):
                 prev_point = point
                 geometries.append(prev_point)
+#               f_out.write(point.to_string(self.output_format) + '\n')
                 i = i + 1
 
         return geometries
@@ -71,7 +73,7 @@ class PointGenerator(Generator):
                 f_out.write(point.to_string(self.output_format) + '\n')
 #             while i < self.card:
 #                 point = self.generate_point(i, prev_point)
-# 
+#  
 #                 if self.is_valid_point(point):
 #                     prev_point = point
 #                     f_out.write(prev_point.to_string(self.output_format) + '\n')
@@ -203,9 +205,12 @@ class ParcelGenerator(PointGenerator):
             # Pop from the stack to get a box
             b = boxes.pop()
             
-            if boxes_generated == self.card - 1:
+            if boxes_generated + len(boxes) == self.card - 1:
                 self.dither_and_append(b, geometries)
                 boxes_generated += 1
+                for box in boxes:
+                    self.dither_and_append(box, geometries)
+                    boxes_generated += 1
             else:
                 if b.w > b.h:
                     # Split vertically if width is bigger than height
@@ -219,6 +224,7 @@ class ParcelGenerator(PointGenerator):
                     b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
                     
                 if len(boxes) <= tree_height - 1:
+                    # Stack height less than the max tree height needed to generate given number of boxes
                     boxes.append(b2)
                     boxes.append(b1)
                 else:
