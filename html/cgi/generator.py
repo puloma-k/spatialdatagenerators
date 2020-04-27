@@ -9,6 +9,7 @@ import sys
 from urllib import parse
 import gzip
 from math import log
+from dataclasses import dataclass
 
 class Generator(ABC):
 
@@ -184,6 +185,8 @@ class BitGenerator(PointGenerator):
             c = self.bernoulli(self.prob)
             num = num + c / (math.pow(2, i))
         return num
+ 
+
 
 
 class ParcelGenerator(PointGenerator):
@@ -195,49 +198,86 @@ class ParcelGenerator(PointGenerator):
 
     def generate(self):
         geometries = []
-        box = Box(0.0, 0.0, 1.0, 1.0)
+        box = BoxWithDepth(Box(0.0, 0.0, 1.0, 1.0), 0)
         boxes = []
         boxes.append(box)
-        tree_height = math.floor(log(self.card, 2))
+        
+        max_height = math.ceil(log(self.card, 2))
+        numToSplit = self.card - pow(2, max_height - 1)
+        numSplit = 0
         boxes_generated = 0
 
         while boxes_generated < self.card:
             # Pop from the stack to get a box
             b = boxes.pop()
             
-            if boxes_generated + len(boxes) == self.card - 1:
-                self.dither_and_append(b, geometries)
-                boxes_generated += 1
-                for box in boxes:
-                    self.dither_and_append(box, geometries)
-                    boxes_generated += 1
-            else:
-                if b.w > b.h:
-                    # Split vertically if width is bigger than height
-                    split_size = b.w * rand.uniform(self.split_range, 1 - self.split_range)
-                    b1 = Box(b.x, b.y, split_size, b.h)
-                    b2 = Box(b.x + split_size, b.y, b.w - split_size, b.h)
-                else:
-                    # Split horizontally if width is less than height
-                    split_size = b.h * rand.uniform(self.split_range, 1 - self.split_range)
-                    b1 = Box(b.x, b.y, b.w, split_size)
-                    b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
-                    
-                if len(boxes) <= tree_height - 1:
-                    # Stack height less than the max tree height needed to generate given number of boxes
+            if b.depth >= max_height - 1:
+                if numSplit < numToSplit:
+                    if b.box_field.w > b.box_field.h:
+                        # Split vertically if width is bigger than height
+                        split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
+                        b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, split_size, b.box_field.h), b.depth+1)
+                        b2 = BoxWithDepth(Box(b.box_field.x + split_size, b.box_field.y, b.box_field.w - split_size, b.box_field.h), b.depth+1)
+                    else:
+                        # Split horizontally if width is less than height
+                        split_size = b.box_field.h * rand.uniform(self.split_range, 1 - self.split_range)
+                        b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, b.box_field.w, split_size), b.depth+1)
+                        b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
                     boxes.append(b2)
                     boxes.append(b1)
+                    numSplit += 1
                 else:
-                    self.dither_and_append(b1, geometries)
-                    self.dither_and_append(b2, geometries)
-                    boxes_generated += 2
+                    self.dither_and_append(b, geometries)
+                    boxes_generated += 1
+            else:
+                if b.box_field.w > b.box_field.h:
+                    # Split vertically if width is bigger than height
+                    split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
+                    b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, split_size, b.box_field.h), b.depth+1)
+                    b2 = BoxWithDepth(Box(b.box_field.x + split_size, b.box_field.y, b.box_field.w - split_size, b.box_field.h), b.depth+1)
+                else:
+                    # Split horizontally if width is less than height
+                    split_size = b.box_field.h * rand.uniform(self.split_range, 1 - self.split_range)
+                    b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, b.box_field.w, split_size), b.depth+1)
+                    b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
+                boxes.append(b2)
+                boxes.append(b1)
+                
+
+            
+#             if boxes_generated + len(boxes) == self.card - 1:
+#                 self.dither_and_append(b, geometries)
+#                 boxes_generated += 1
+#                 for box in boxes:
+#                     self.dither_and_append(box, geometries)
+#                     boxes_generated += 1
+#             else:
+#                 if b.w > b.h:
+#                     # Split vertically if width is bigger than height
+#                     split_size = b.w * rand.uniform(self.split_range, 1 - self.split_range)
+#                     b1 = Box(b.x, b.y, split_size, b.h)
+#                     b2 = Box(b.x + split_size, b.y, b.w - split_size, b.h)
+#                 else:
+#                     # Split horizontally if width is less than height
+#                     split_size = b.h * rand.uniform(self.split_range, 1 - self.split_range)
+#                     b1 = Box(b.x, b.y, b.w, split_size)
+#                     b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
+#                     
+#                 if len(boxes) <= tree_height - 1:
+#                     # Stack height less than the max tree height needed to generate given number of boxes
+#                     boxes.append(b2)
+#                     boxes.append(b1)
+#                 else:
+#                     self.dither_and_append(b1, geometries)
+#                     self.dither_and_append(b2, geometries)
+#                     boxes_generated += 2
 
         return geometries
     
     def dither_and_append(self, b, geometries):
-        b.w = b.w * (1.0 - rand.uniform(0.0, self.dither))
-        b.h = b.h * (1.0 - rand.uniform(0.0, self.dither))
-        geometries.append(b)
+        b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
+        b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
+        geometries.append(b.box_field)
         
     def generate_point(self, i, prev_point):
         PointGenerator.generate_point(self, i, prev_point)
@@ -289,7 +329,11 @@ class Box(Geometry):
     def to_wkt_string(self):
         x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
         return 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
-
+    
+@dataclass
+class BoxWithDepth:
+    box_field: Box
+    depth: int
 
 def main():
     """
@@ -319,8 +363,9 @@ def main():
 #                       help='Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point.')
 #     parser.add_option('-f', '--format', type='string',
 #                       help='Output format. Currently the generator supports {csv, wkt}')
+    
     url = os.environ["REQUEST_URI"]
-    #url = "http://localhost/cgi/generator.py?dist=parcel&card=5&geo=box&dim=2&fmt=csv&dith=0&sran=0.5"
+#     url = "http://localhost/cgi/generator.py?dist=parcel&card=2&geo=box&dim=2&fmt=csv&dith=0&sran=0.5"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query))
     oFilePath = "test"
