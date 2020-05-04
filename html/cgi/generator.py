@@ -8,17 +8,19 @@ import random as rand
 import sys
 from urllib import parse
 import gzip
+import zlib
 from math import log
 from dataclasses import dataclass
 
 class Generator(ABC):
 
-    def __init__(self, card, geo, dim, dist, output_format):
+    def __init__(self, card, geo, dim, dist, output_format, strm):
         self.card = card
         self.geo = geo
         self.dim = dim
         self.dist = dist
         self.output_format = output_format
+        self.strm = strm
 
     def bernoulli(self, p):
         return 1 if rand.random() < p else 0
@@ -39,59 +41,31 @@ class Generator(ABC):
 
 class PointGenerator(Generator):
 
-    def __init__(self, card, geo, dim, dist, output_format):
-        super(PointGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm):
+        super(PointGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
 
     def generate(self):
-        geometries = []
-        prev_point = None
+        pass
 
+    def generate_and_write(self):         
+        prev_point = None
         i = 0
         
+        zlibObj = zlib.compressobj(1, zlib.DEFLATED, 31, 9, zlib.Z_DEFAULT_STRATEGY)
+
         while i < self.card:
             point = self.generate_point(i, prev_point)
             if self.is_valid_point(point):
                 prev_point = point
-                geometries.append(prev_point)
-#               f_out.write(point.to_string(self.output_format) + '\n')
+                if self.strm == "cfile":
+                    data = zlibObj.compress(bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8'))
+                else:
+                    data = bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8')
+                sys.stdout.buffer.write(data)
                 i = i + 1
-
-        return geometries
-
-    def generate_and_write(self):         
-        o_file_name = "dat" + str(rand.randint(0,1000000)) + "." + self.output_format + ".gz"
-        o_file_path = "output/" + o_file_name
-        
-        sys.stdout.buffer.write(bytes("Content-type:application/x-gzip" + '\r\n', 'utf-8'))
-        sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + o_file_name + "\"" + '\r\n', 'utf-8'))        
-         
-#         prev_point = None
-#         i = 0
-        
-        with gzip.open(o_file_path, 'wt', 9, 'utf-8') as f_out:
-            geometries = self.generate()
-            for point in geometries:
-                f_out.write(point.to_string(self.output_format) + '\n')
-#             while i < self.card:
-#                 point = self.generate_point(i, prev_point)
-#  
-#                 if self.is_valid_point(point):
-#                     prev_point = point
-#                     f_out.write(prev_point.to_string(self.output_format) + '\n')
-#                     i = i + 1
-        
-        file_length = os.stat(o_file_path).st_size
-        sys.stdout.buffer.write(bytes("Content-Length: " + str(file_length) + '\r\n', 'utf-8'))
-        sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
-
-        with open(o_file_path, 'rb') as f_in:
-            while True:
-                chunk = f_in.read(4096)
-                if not chunk:
-                    break
-                sys.stdout.buffer.write(chunk)
-                
-        os.remove(o_file_path)
+        if self.strm == "cfile":
+            data = zlibObj.flush(zlib.Z_FULL_FLUSH)
+            sys.stdout.buffer.write(data)
         
     @abstractmethod
     def generate_point(self, i, prev_point):
@@ -100,8 +74,8 @@ class PointGenerator(Generator):
 
 class UniformGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format):
-        super(UniformGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm):
+        super(UniformGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
 
     def generate_point(self, i, prev_point):
         coordinates = [rand.random() for d in range(self.dim)]
@@ -110,8 +84,8 @@ class UniformGenerator(PointGenerator):
 
 class DiagonalGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, percentage, buffer):
-        super(DiagonalGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm, percentage, buffer):
+        super(DiagonalGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
         self.percentage = percentage
         self.buffer = buffer
 
@@ -128,8 +102,8 @@ class DiagonalGenerator(PointGenerator):
 
 class GaussianGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format):
-        super(GaussianGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm):
+        super(GaussianGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
 
     def generate_point(self, i, prev_point):
         coordinates = [self.normal(0.5, 0.1) for d in range(self.dim)]
@@ -138,8 +112,8 @@ class GaussianGenerator(PointGenerator):
 
 class SierpinskiGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format):
-        super(SierpinskiGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm):
+        super(SierpinskiGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
 
     def generate_point(self, i, prev_point):
         if i == 0:
@@ -170,8 +144,8 @@ class SierpinskiGenerator(PointGenerator):
 
 class BitGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, prob, digits):
-        super(BitGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm, prob, digits):
+        super(BitGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
         self.prob = prob
         self.digits = digits
 
@@ -187,23 +161,21 @@ class BitGenerator(PointGenerator):
         return num
  
 
-
-
 class ParcelGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, split_range, dither):
-        super(ParcelGenerator, self).__init__(card, geo, dim, dist, output_format)
+    def __init__(self, card, geo, dim, dist, output_format, strm, split_range, dither):
+        super(ParcelGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
         self.split_range = split_range
         self.dither = dither
 
-    def generate(self):
-        geometries = []
+    def generate_and_write(self):
+        zlibObj = zlib.compressobj(1, zlib.DEFLATED, 31, 9, zlib.Z_DEFAULT_STRATEGY)
         box = BoxWithDepth(Box(0.0, 0.0, 1.0, 1.0), 0)
         boxes = []
         boxes.append(box)
         
         max_height = math.ceil(log(self.card, 2))
-        numToSplit = self.card - pow(2, max_height - 1)
+        numToSplit = self.card - pow(2, max(max_height - 1, 0))
         numSplit = 0
         boxes_generated = 0
 
@@ -213,71 +185,40 @@ class ParcelGenerator(PointGenerator):
             
             if b.depth >= max_height - 1:
                 if numSplit < numToSplit:
-                    if b.box_field.w > b.box_field.h:
-                        # Split vertically if width is bigger than height
-                        split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
-                        b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, split_size, b.box_field.h), b.depth+1)
-                        b2 = BoxWithDepth(Box(b.box_field.x + split_size, b.box_field.y, b.box_field.w - split_size, b.box_field.h), b.depth+1)
-                    else:
-                        # Split horizontally if width is less than height
-                        split_size = b.box_field.h * rand.uniform(self.split_range, 1 - self.split_range)
-                        b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, b.box_field.w, split_size), b.depth+1)
-                        b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
-                    boxes.append(b2)
-                    boxes.append(b1)
+                    split(boxes)
                     numSplit += 1
                 else:
-                    self.dither_and_append(b, geometries)
+                    self.dither_and_print(b, zlibObj)
                     boxes_generated += 1
             else:
-                if b.box_field.w > b.box_field.h:
-                    # Split vertically if width is bigger than height
-                    split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
-                    b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, split_size, b.box_field.h), b.depth+1)
-                    b2 = BoxWithDepth(Box(b.box_field.x + split_size, b.box_field.y, b.box_field.w - split_size, b.box_field.h), b.depth+1)
-                else:
-                    # Split horizontally if width is less than height
-                    split_size = b.box_field.h * rand.uniform(self.split_range, 1 - self.split_range)
-                    b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, b.box_field.w, split_size), b.depth+1)
-                    b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
-                boxes.append(b2)
-                boxes.append(b1)
-                
+                split(boxes)
+        if self.strm == "cfile":
+            data = zlibObj.flush(zlib.Z_FULL_FLUSH)
+            sys.stdout.buffer.write(data)
 
-            
-#             if boxes_generated + len(boxes) == self.card - 1:
-#                 self.dither_and_append(b, geometries)
-#                 boxes_generated += 1
-#                 for box in boxes:
-#                     self.dither_and_append(box, geometries)
-#                     boxes_generated += 1
-#             else:
-#                 if b.w > b.h:
-#                     # Split vertically if width is bigger than height
-#                     split_size = b.w * rand.uniform(self.split_range, 1 - self.split_range)
-#                     b1 = Box(b.x, b.y, split_size, b.h)
-#                     b2 = Box(b.x + split_size, b.y, b.w - split_size, b.h)
-#                 else:
-#                     # Split horizontally if width is less than height
-#                     split_size = b.h * rand.uniform(self.split_range, 1 - self.split_range)
-#                     b1 = Box(b.x, b.y, b.w, split_size)
-#                     b2 = Box(b.x, b.y + split_size, b.w, b.h - split_size)
-#                     
-#                 if len(boxes) <= tree_height - 1:
-#                     # Stack height less than the max tree height needed to generate given number of boxes
-#                     boxes.append(b2)
-#                     boxes.append(b1)
-#                 else:
-#                     self.dither_and_append(b1, geometries)
-#                     self.dither_and_append(b2, geometries)
-#                     boxes_generated += 2
-
-        return geometries
+    def split(self, boxes):
+        if b.box_field.w > b.box_field.h:
+            # Split vertically if width is bigger than height
+            split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
+            b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, split_size, b.box_field.h), b.depth+1)
+            b2 = BoxWithDepth(Box(b.box_field.x + split_size, b.box_field.y, b.box_field.w - split_size, b.box_field.h), b.depth+1)
+        else:
+            # Split horizontally if width is less than height
+            split_size = b.box_field.h * rand.uniform(self.split_range, 1 - self.split_range)
+            b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, b.box_field.w, split_size), b.depth+1)
+            b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
+        boxes.append(b2)
+        boxes.append(b1)
     
-    def dither_and_append(self, b, geometries):
+    def dither_and_print(self, b, zlibObj):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
         b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
-        geometries.append(b.box_field)
+        
+        if self.strm == "cfile":
+            data = zlibObj.compress(bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8'))
+        else:
+            data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
+        sys.stdout.buffer.write(data)
         
     def generate_point(self, i, prev_point):
         PointGenerator.generate_point(self, i, prev_point)
@@ -340,62 +281,37 @@ def main():
     Generate a list of geometries and write the list to file
     :return:
     """
-#     parser = OptionParser()
-#     parser.add_option('-c', '--card', type='int', help='The number of records to generate.')
-#     parser.add_option('-g', '--geo', type='string',
-#                       help='Geometry type. Currently the generator supports {point, rectangle}.')
-#     parser.add_option('-d', '--dim', type='int',
-#                       help='The dimensionality of the generated geometries. Currently, on two-dimensional data is supported.')
-#     parser.add_option('-t', '--dist', type='string',
-#                       help='The available distributions are: {uniform, diagonal, gaussian, sierpinsk, bit, parcel}.')
-#     parser.add_option('-p', '--percentage', type='float',
-#                       help='Diagonal distribution: The percentage (ratio) of the points that are exactly on the line.')
-#     parser.add_option('-b', '--buffer', type='float',
-#                       help='Diagonal distribution: The size of the buffer around the line where additional geometries are scattered.')
-#     parser.add_option('-o', '--output', type='string', help='Path to the output file')
-#     parser.add_option('-q', '--prob', type='float',
-#                       help='Bit distribution: The probability of setting each bit independently to 1.')
-#     parser.add_option('-n', '--digits', type='int',
-#                       help='Bit distribution: The number of binary digits after the fraction point.')
-#     parser.add_option('-r', '--split_range', type='float',
-#                       help='Parcel distribution: The minimum tiling range for splitting a box. r = 0 indicates that all the ranges are allowed while r = 0.5 indicates that a box is always split into half.')
-#     parser.add_option('-e', '--dither', type='float',
-#                       help='Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point.')
-#     parser.add_option('-f', '--format', type='string',
-#                       help='Output format. Currently the generator supports {csv, wkt}')
     
-    url = os.environ["REQUEST_URI"]
-#     url = "http://localhost/cgi/generator.py?dist=parcel&card=2&geo=box&dim=2&fmt=csv&dith=0&sran=0.5"
+#     url = os.environ["REQUEST_URI"]
+    url = "http://localhost/cgi/generator.py?dist=parcel&card=1&geo=box&dim=2&fmt=csv&dith=0&sran=0.5&strm=cfile"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query))
-    oFilePath = "test"
 
     try:
-        card, geo, dim, dist, output_format = int(pDict['card']), pDict['geo'], int(pDict['dim']), \
-                                                      pDict['dist'], pDict['fmt']
+        card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
     except RuntimeError:
         print('Please check your arguments')
 
     if dist == 'uniform':
-        generator = UniformGenerator(card, geo, dim, dist, output_format)
+        generator = UniformGenerator(card, geo, dim, dist, output_format, strm)
 
     elif dist == 'diagonal':
         percentage, buffer = float(pDict['per']), float(pDict['buf'])
-        generator = DiagonalGenerator(card, geo, dim, dist, output_format, percentage, buffer)
+        generator = DiagonalGenerator(card, geo, dim, dist, output_format, strm, percentage, buffer)
 
     elif dist == 'gaussian':
-        generator = GaussianGenerator(card, geo, dim, dist, output_format)
+        generator = GaussianGenerator(card, geo, dim, dist, output_format, strm)
 
     elif dist == 'sierpinski':
         if dim != 2:
             print('Currently we only support 2 dimensions for Sierpinski distribution')
             sys.exit()
 
-        generator = SierpinskiGenerator(card, geo, dim, dist, output_format)
+        generator = SierpinskiGenerator(card, geo, dim, dist, output_format, strm)
 
     elif dist == 'bit':
         prob, digits = float(pDict['prob']), int(pDict['dig'])
-        generator = BitGenerator(card, geo, dim, dist, output_format, prob, digits)
+        generator = BitGenerator(card, geo, dim, dist, output_format, strm, prob, digits)
 
     elif dist == 'parcel':
         if dim != 2:
@@ -403,12 +319,20 @@ def main():
             sys.exit()
 
         split_range, dither = float(pDict['sran']), float(pDict['dith'])
-        generator = ParcelGenerator(card, geo, dim, dist, output_format, split_range, dither)
+        generator = ParcelGenerator(card, geo, dim, dist, output_format, strm, split_range, dither)
 
     else:
         print('Please check the distribution type.')
         sys.exit()
-
+        
+    remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".gz"
+    if strm == "cfile":
+        sys.stdout.buffer.write(bytes("Content-type:application/x-gzip" + '\r\n', 'utf-8'))
+        sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + remote_file_name + "\"" + '\r\n', 'utf-8'))      
+    else:
+        sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
+    sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
+    
     generator.generate_and_write()
 
 if __name__ == "__main__":
