@@ -7,8 +7,7 @@ import queue
 import random as rand
 import sys
 from urllib import parse
-import gzip
-import zlib
+import bz2
 from math import log
 from dataclasses import dataclass
 
@@ -51,21 +50,22 @@ class PointGenerator(Generator):
         prev_point = None
         i = 0
         
-        zlibObj = zlib.compressobj(1, zlib.DEFLATED, 31, 9, zlib.Z_DEFAULT_STRATEGY)
-
+        if self.strm == "cfile":
+            bz2_file = bz2.BZ2Compressor()
+            
         while i < self.card:
             point = self.generate_point(i, prev_point)
             if self.is_valid_point(point):
                 prev_point = point
+                data = bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8')
                 if self.strm == "cfile":
-                    data = zlibObj.compress(bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8'))
-                else:
-                    data = bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8')
+                    data = bz2_file.compress(data)
                 sys.stdout.buffer.write(data)
                 i = i + 1
-        if self.strm == "cfile":
-            data = zlibObj.flush(zlib.Z_FULL_FLUSH)
+        if self.strm == "cfile":       
+            data = bz2_file.flush()
             sys.stdout.buffer.write(data)
+
         
     @abstractmethod
     def generate_point(self, i, prev_point):
@@ -168,8 +168,10 @@ class ParcelGenerator(PointGenerator):
         self.split_range = split_range
         self.dither = dither
 
-    def generate_and_write(self):
-        zlibObj = zlib.compressobj(1, zlib.DEFLATED, 31, 9, zlib.Z_DEFAULT_STRATEGY)
+    def generate_and_write(self):               
+        if self.strm == "cfile":
+            bz2_file = bz2.BZ2Compressor()
+            
         box = BoxWithDepth(Box(0.0, 0.0, 1.0, 1.0), 0)
         boxes = []
         boxes.append(box)
@@ -185,18 +187,19 @@ class ParcelGenerator(PointGenerator):
             
             if b.depth >= max_height - 1:
                 if numSplit < numToSplit:
-                    split(boxes)
+                    self.split(b, boxes)
                     numSplit += 1
                 else:
-                    self.dither_and_print(b, zlibObj)
+                    self.dither_and_print(b, bz2_file)
                     boxes_generated += 1
             else:
-                split(boxes)
-        if self.strm == "cfile":
-            data = zlibObj.flush(zlib.Z_FULL_FLUSH)
+                self.split(b, boxes)
+                
+        if self.strm == "cfile":       
+            data = bz2_file.flush()
             sys.stdout.buffer.write(data)
 
-    def split(self, boxes):
+    def split(self, b, boxes):
         if b.box_field.w > b.box_field.h:
             # Split vertically if width is bigger than height
             split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
@@ -210,15 +213,16 @@ class ParcelGenerator(PointGenerator):
         boxes.append(b2)
         boxes.append(b1)
     
-    def dither_and_print(self, b, zlibObj):
+    def dither_and_print(self, b, bz2_file):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
         b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
         
+        data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
         if self.strm == "cfile":
-            data = zlibObj.compress(bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8'))
-        else:
-            data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
+            data = bz2_file.compress(data)
+        
         sys.stdout.buffer.write(data)
+
         
     def generate_point(self, i, prev_point):
         PointGenerator.generate_point(self, i, prev_point)
@@ -282,8 +286,8 @@ def main():
     :return:
     """
     
-#     url = os.environ["REQUEST_URI"]
-    url = "http://localhost/cgi/generator.py?dist=parcel&card=1&geo=box&dim=2&fmt=csv&dith=0&sran=0.5&strm=cfile"
+    url = os.environ["REQUEST_URI"]
+#     url = "http://localhost/cgi/generator.py?dist=parcel&card=10&geo=box&dim=2&fmt=wkt&dith=0&sran=0.5&strm=cfile"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query))
 
@@ -333,7 +337,13 @@ def main():
         sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
     sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
     
+    if strm != "cfile":
+        sys.stdout.buffer.write(bytes("<pre>", 'utf-8'))
+    
     generator.generate_and_write()
+    
+    if strm != "cfile":
+        sys.stdout.buffer.write(bytes("</pre>", 'utf-8'))
 
 if __name__ == "__main__":
     main()
