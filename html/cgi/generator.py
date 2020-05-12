@@ -10,6 +10,7 @@ from urllib import parse
 import bz2
 from math import log
 from dataclasses import dataclass
+from datetime import datetime
 
 class Generator(ABC):
 
@@ -51,7 +52,7 @@ class PointGenerator(Generator):
         i = 0
         
         if self.strm == "cfile":
-            bz2_file = bz2.BZ2Compressor()
+            bz2_compressor = bz2.BZ2Compressor()
             
         while i < self.card:
             point = self.generate_point(i, prev_point)
@@ -59,13 +60,13 @@ class PointGenerator(Generator):
                 prev_point = point
                 data = bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8')
                 if self.strm == "cfile":
-                    data = bz2_file.compress(data)
+                    data = bz2_compressor.compress(data)
                 sys.stdout.buffer.write(data)
                 i = i + 1
+                
         if self.strm == "cfile":       
-            data = bz2_file.flush()
+            data = bz2_compressor.flush()
             sys.stdout.buffer.write(data)
-
         
     @abstractmethod
     def generate_point(self, i, prev_point):
@@ -169,8 +170,7 @@ class ParcelGenerator(PointGenerator):
         self.dither = dither
 
     def generate_and_write(self):               
-        if self.strm == "cfile":
-            bz2_file = bz2.BZ2Compressor()
+        bz2_compressor = bz2.BZ2Compressor()
             
         box = BoxWithDepth(Box(0.0, 0.0, 1.0, 1.0), 0)
         boxes = []
@@ -190,14 +190,18 @@ class ParcelGenerator(PointGenerator):
                     self.split(b, boxes)
                     numSplit += 1
                 else:
-                    self.dither_and_print(b, bz2_file)
+                    self.dither_and_print(b, bz2_compressor)
+                    if boxes_generated % 1000 == 0:
+                        sys.stdout.buffer.flush()
+                        
                     boxes_generated += 1
             else:
                 self.split(b, boxes)
                 
         if self.strm == "cfile":       
-            data = bz2_file.flush()
+            data = bz2_compressor.flush()
             sys.stdout.buffer.write(data)
+            
 
     def split(self, b, boxes):
         if b.box_field.w > b.box_field.h:
@@ -213,16 +217,15 @@ class ParcelGenerator(PointGenerator):
         boxes.append(b2)
         boxes.append(b1)
     
-    def dither_and_print(self, b, bz2_file):
+    def dither_and_print(self, b, bz2_compressor):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
         b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
         
         data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
         if self.strm == "cfile":
-            data = bz2_file.compress(data)
+            data = bz2_compressor.compress(data)
         
         sys.stdout.buffer.write(data)
-
         
     def generate_point(self, i, prev_point):
         PointGenerator.generate_point(self, i, prev_point)
@@ -275,10 +278,12 @@ class Box(Geometry):
         x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
         return 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
     
+    
 @dataclass
 class BoxWithDepth:
     box_field: Box
     depth: int
+
 
 def main():
     """
@@ -329,7 +334,7 @@ def main():
         print('Please check the distribution type.')
         sys.exit()
         
-    remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".gz"
+    remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".bz2"
     if strm == "cfile":
         sys.stdout.buffer.write(bytes("Content-type:application/x-gzip" + '\r\n', 'utf-8'))
         sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + remote_file_name + "\"" + '\r\n', 'utf-8'))      
