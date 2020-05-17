@@ -1,16 +1,13 @@
 #!/usr/local/bin/python3
 from abc import ABC, abstractmethod
 import math
-from optparse import OptionParser
 import os
-import queue
 import random as rand
 import sys
 from urllib import parse
 import bz2
 from math import log
 from dataclasses import dataclass
-from datetime import datetime
 
 class Generator(ABC):
 
@@ -47,7 +44,9 @@ class PointGenerator(Generator):
     def generate(self):
         pass
 
-    def generate_and_write(self):         
+    # Used for all generator types, except for parcel generator, which handles output differently
+    # See parcel generator for more details
+    def generate_and_write(self):        
         prev_point = None
         i = 0
         
@@ -65,7 +64,7 @@ class PointGenerator(Generator):
                 i = i + 1
                 
         if self.strm == "cfile":       
-            data = bz2_compressor.flush()
+            data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
             sys.stdout.buffer.write(data)
         
     @abstractmethod
@@ -169,50 +168,53 @@ class ParcelGenerator(PointGenerator):
         self.split_range = split_range
         self.dither = dither
 
-    def generate_and_write(self):               
+    def generate_and_write(self):
+        # Tried gzip and underlying zlib, neither has a bug-free implementation in Python
+        # bz2 is the only real option               
         bz2_compressor = bz2.BZ2Compressor()
             
+        # Using dataclass to create BoxWithDepth, which stores depth of each box in the tree
+        # Depth is used to determine at which level to stop splitting and start printing    
         box = BoxWithDepth(Box(0.0, 0.0, 1.0, 1.0), 0)
-        boxes = []
+        boxes = [] # Empty stack for depth-first generation of boxes
         boxes.append(box)
         
         max_height = math.ceil(log(self.card, 2))
+        
+        # We will print some boxes at last level and the remaining at the second to last level 
+        # Number of boxes to split on the second to last level
         numToSplit = self.card - pow(2, max(max_height - 1, 0))
         numSplit = 0
         boxes_generated = 0
 
         while boxes_generated < self.card:
-            # Pop from the stack to get a box
             b = boxes.pop()
             
             if b.depth >= max_height - 1:
-                if numSplit < numToSplit: # This is one level before the deepest
+                if numSplit < numToSplit: # Split at second to last level and print the new boxes
                     b1, b2 = self.split(b, boxes)
                     numSplit += 1
                     self.dither_and_print(b1, bz2_compressor)
                     self.dither_and_print(b2, bz2_compressor)
                     boxes_generated += 2
-                else:
+                else: # Print remaining boxes from the second to last level 
                     self.dither_and_print(b, bz2_compressor)
-#                     if boxes_generated % 1000 == 0:
-                    if boxes_generated == 10:
+                    if boxes_generated == 10: # Early flush to ensure immediate download of data
                         sys.stdout.buffer.flush()
-                        
                     boxes_generated += 1
             else:
                 b1, b2 = self.split(b, boxes)
                 boxes.append(b2)
                 boxes.append(b1)
-
                 
         if self.strm == "cfile":       
-            data = bz2_compressor.flush()
+            data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
             sys.stdout.buffer.write(data)
             
-
     def split(self, b, boxes):
         if b.box_field.w > b.box_field.h:
             # Split vertically if width is bigger than height
+            # Tried numpy random number generator, found to be twice as slow as the Python default generator
             split_size = b.box_field.w * rand.uniform(self.split_range, 1 - self.split_range)
             b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, split_size, b.box_field.h), b.depth+1)
             b2 = BoxWithDepth(Box(b.box_field.x + split_size, b.box_field.y, b.box_field.w - split_size, b.box_field.h), b.depth+1)
@@ -230,7 +232,6 @@ class ParcelGenerator(PointGenerator):
         data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
         if self.strm == "cfile":
             data = bz2_compressor.compress(data)
-        
         sys.stdout.buffer.write(data)
         
     def generate_point(self, i, prev_point):
@@ -282,7 +283,6 @@ class Box(Geometry):
 
     def to_wkt_string(self):
         x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
-#         return 'POLYGON (({:.12f} {:.12f}, {:.12f} {:.12f}, {:.12f} {:.12f}, {:.12f} {:.12f}, {:.12f} {:.12f}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
         return 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
     
     
@@ -293,15 +293,11 @@ class BoxWithDepth:
 
 
 def main():
-    """
-    Generate a list of geometries and write the list to file
-    :return:
-    """
-    
     url = os.environ["REQUEST_URI"]
+    # Enable following url to debug without web server
 #     url = "http://localhost/cgi/generator.py?dist=parcel&card=5&geo=box&dim=2&fmt=wkt&dith=0&sran=0.5&strm=s"
 
-    pDict = dict(parse.parse_qsl(parse.urlparse(url).query))
+    pDict = dict(parse.parse_qsl(parse.urlparse(url).query)) # Parse url to get parameters in pDict
 
     try:
         card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
@@ -341,9 +337,11 @@ def main():
         print('Please check the distribution type.')
         sys.exit()
         
+    # Sets default download filename in save file dialog box in browser    
     remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".bz2"
-    if strm == "cfile":
-        sys.stdout.buffer.write(bytes("Content-type:application/x-gzip" + '\r\n', 'utf-8'))
+    
+    if strm == "cfile": # Cfile indicates compressed data download
+        sys.stdout.buffer.write(bytes("Content-type:application/x-bzip2" + '\r\n', 'utf-8'))
         sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + remote_file_name + "\"" + '\r\n', 'utf-8'))      
     else:
         sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
