@@ -186,17 +186,24 @@ class ParcelGenerator(PointGenerator):
             b = boxes.pop()
             
             if b.depth >= max_height - 1:
-                if numSplit < numToSplit:
-                    self.split(b, boxes)
+                if numSplit < numToSplit: # This is one level before the deepest
+                    b1, b2 = self.split(b, boxes)
                     numSplit += 1
+                    self.dither_and_print(b1, bz2_compressor)
+                    self.dither_and_print(b2, bz2_compressor)
+                    boxes_generated += 2
                 else:
                     self.dither_and_print(b, bz2_compressor)
-                    if boxes_generated % 1000 == 0:
+#                     if boxes_generated % 1000 == 0:
+                    if boxes_generated == 10:
                         sys.stdout.buffer.flush()
                         
                     boxes_generated += 1
             else:
-                self.split(b, boxes)
+                b1, b2 = self.split(b, boxes)
+                boxes.append(b2)
+                boxes.append(b1)
+
                 
         if self.strm == "cfile":       
             data = bz2_compressor.flush()
@@ -214,8 +221,7 @@ class ParcelGenerator(PointGenerator):
             split_size = b.box_field.h * rand.uniform(self.split_range, 1 - self.split_range)
             b1 = BoxWithDepth(Box(b.box_field.x, b.box_field.y, b.box_field.w, split_size), b.depth+1)
             b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
-        boxes.append(b2)
-        boxes.append(b1)
+        return b1, b2
     
     def dither_and_print(self, b, bz2_compressor):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
@@ -276,6 +282,7 @@ class Box(Geometry):
 
     def to_wkt_string(self):
         x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
+#         return 'POLYGON (({:.12f} {:.12f}, {:.12f} {:.12f}, {:.12f} {:.12f}, {:.12f} {:.12f}, {:.12f} {:.12f}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
         return 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
     
     
@@ -292,7 +299,7 @@ def main():
     """
     
     url = os.environ["REQUEST_URI"]
-#     url = "http://localhost/cgi/generator.py?dist=parcel&card=10&geo=box&dim=2&fmt=wkt&dith=0&sran=0.5&strm=cfile"
+#     url = "http://localhost/cgi/generator.py?dist=parcel&card=5&geo=box&dim=2&fmt=wkt&dith=0&sran=0.5&strm=s"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query))
 
