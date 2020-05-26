@@ -1,0 +1,272 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<meta name="description" content="Spatial data generator developed at UC Riverside by Puloma Katiyar under guidance of Dr. Ahmed Eldawy">
+	<meta name="keywords" content="Spatial data, data generator, UCR, UC Riverside, UCR database lab, test data, Puloma Katiyar, Ahmed Eldawy, computer science">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<link rel="shortcut icon" href="sk.ico">
+	<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css">
+	<style type="text/css">
+		.headcol { vertical-align: top; text-align: right; }
+		.widgettab { vertical-align: top; text-align: left; }
+		.bigtab { } 
+		.pagehead { text-align: center; }
+		.optionlabel1 { text-align: right; width: 35%; }
+		.optiondata1 { width: 15%; }
+		.optionlabel2 { text-align: right; width: 15%; }
+		.optiondata2 { width: 35%; }
+		.hide { position:absolute; top:-1px; left:-1px; width:1px; height:1px; }
+        #dataContent {
+            width: 70%;
+            height: 300px;
+        }
+	</style>
+
+	<title>Spatial Data Generator</title>
+	
+	<script>
+		var fEnableObj = {
+			"perc": "diagonal",
+			"buf": "diagonal",
+			"prob": "bit",
+			"dig": "bit",
+			"sran": "parcel",
+			"dith": "parcel"
+		}
+		
+		function disableInput() {
+			var distType = document.getElementById("dist").value
+			if(fEnableObj.perc != distType)
+				document.getElementById("perc").disabled = true;
+			if(fEnableObj.buf != distType)
+				document.getElementById("buf").disabled = true;
+			if(fEnableObj.prob != distType)
+				document.getElementById("prob").disabled = true;
+			if(fEnableObj.dig != distType)
+				document.getElementById("dig").disabled = true;
+			if(fEnableObj.sran != distType)
+				document.getElementById("sran").disabled = true;
+			if(fEnableObj.dith != distType)
+				document.getElementById("dith").disabled = true;								
+		}
+		
+		function updateInputs() {
+			document.getElementById("perc").disabled = false;
+			document.getElementById("buf").disabled = false;
+			document.getElementById("prob").disabled = false;
+			document.getElementById("dig").disabled = false;
+			document.getElementById("sran").disabled = false;
+			document.getElementById("dith").disabled = false;	
+			disableInput();
+		}
+		
+		function buildURL() {
+			var url = "http://localhost/cgi/generator.py?";
+			url += "dist=" + document.getElementById("dist").value;
+			url += "&card=" + document.getElementById("card").value;
+			url += "&dim=" + document.getElementById("dim").value;
+			url += "&fmt=" + document.getElementById("fmt").value;
+			url += "&strm=" + document.getElementById("strm").value;
+			url += "&geo=point";
+			
+			var inputVal = document.getElementById("perc").value;
+			if(!document.getElementById("perc").disabled && inputVal)
+				url += "&perc=" + inputVal;
+			inputVal = document.getElementById("buf").value;
+			if(!document.getElementById("buf").disabled && inputVal)
+				url += "&buf=" + inputVal;
+			inputVal = document.getElementById("prob").value;
+			if(!document.getElementById("prob").disabled && inputVal)
+				url += "&prob=" + inputVal;
+			inputVal = document.getElementById("dig").value;
+			if(!document.getElementById("dig").disabled && inputVal)
+				url += "&dig=" + inputVal;
+			inputVal = document.getElementById("sran").value;
+			if(!document.getElementById("sran").disabled && inputVal)
+				url += "&sran=" + inputVal;
+			inputVal = document.getElementById("dith").value;
+			if(!document.getElementById("dith").disabled && inputVal)
+				url += "&dith=" + inputVal;	
+			return url;																			
+		}
+		
+		function submitAndRender() {
+            // formURL = "https://openlayers.org/en/latest/examples/data/geojson/countries.geojson";
+            formURL = buildURL();
+
+			XHR = new XMLHttpRequest();
+			XHR.addEventListener( 'load', function(event) {
+				document.getElementById("dataContent").innerHTML = "";
+                var vectorLayer = new ol.layer.Vector({
+                    source: new ol.source.Vector({
+                        // features: (new ol.format.GeoJSON()).readFeatures(XHR.responseText)
+                        features: (new ol.format.WKT()).readFeatures(XHR.responseText)
+                    })
+                });
+                
+                var view = new ol.View({
+                    center: [0.5, 0.5],
+                    zoom: 25
+                });
+                
+                var map = new ol.Map({
+                    target: 'dataContent',
+                    layers: [vectorLayer],
+                    view: view
+                });
+			});
+			XHR.addEventListener( 'error', function(event) {
+				alert( 'Oops! Something went wrong.' );
+			});
+			XHR.open( 'GET', formURL);
+			XHR.send(null);
+
+		/*
+			var vectorSource = new ol.layer.GeoJSON({
+        		projection: 'EPSG:3857',
+        		url: formURL
+      		});
+
+            var vectorSource = new VectorSource({
+                features: (new ol.format.GeoJSON()).readFeatures(XHR.responseText)
+            });
+      		
+		*/
+		}
+		
+	</script>
+
+</head>
+
+<body style="background-color:#FEFEFF;" onload="disableInput()">
+	<h1 class="pagehead">Spatial Data Generator</h1>
+
+	
+	<form id="datareq" action="javascript:void(0);" onSubmit="submitAndRender()">
+		<table class="bigtab" border="0" cellspacing="10" width="98%">
+			<tbody>
+				<tr>
+					<td class="optionlabel1">
+						Distribution ?:
+					</td>
+					<td class="optiondata1">
+						<select id="dist" name="dist" onchange="updateInputs()">
+							<option value="uniform">Uniform</option>
+							<option value="diagonal">Diagonal</option>
+							<option value="gaussian">Gaussian</option>
+							<option value="sierpinski">Sierpinski</option>
+							<option value="bit">Bit</option>
+							<option value="parcel">Parcel</option>
+						</select>
+					</td>
+					<td class="optionlabel2">
+						Cardinality ?:	
+					</td>
+					<td class="optiondata2">
+						<input type="number" id="card" name="card"></input>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class="optionlabel1">
+						Dimension ?:
+					</td>
+					<td class="optiondata1">
+						<select id="dim" name="dim">
+							<option value="2">2</option>
+							<option value="3">3</option>
+						</select>
+					</td>
+					<td class="optionlabel2">
+						Format ?:
+					</td>
+					<td class="optiondata2">
+						<select id="fmt" name="fmt">
+							<option value="csv">csv</option>
+							<option value="wkt">wkt</option>
+							<option value="gjson">geoJSON</option>
+						</select>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class="optionlabel1">
+						Percentage ?:
+					</td>
+					<td class="optiondata1">
+						<input type="text" id="perc" name="perc"></input>
+					</td>
+					<td class="optionlabel2">
+						Buffer ?:
+					</td>
+					<td class="optiondata2">
+						<input type="text" id="buf" name="buf"></input>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class="optionlabel1">
+						Probability ?:
+					</td>
+					<td class="optiondata1">
+						<input type="text" id="prob" name="prob"></input>
+					</td>
+					<td class="optionlabel2">
+						Digits ?:
+					</td>
+					<td class="optiondata2">
+						<input type="number" id="dig" name="dig"></input>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class="optionlabel1">
+						Split range ?:
+					</td>
+					<td class="optiondata1">
+						<input type="text" id="sran" name="sran"></input>
+					</td>
+					<td class="optionlabel2">
+						Dither ?:
+					</td>
+					<td class="optiondata2">
+						<input type="text" id="dith" name="dith"></input>
+					</td>
+				</tr>
+				
+				<tr>
+					<td colspan="4">
+						<table align="center">
+							<tr>
+								<td style="text-align:right">
+									Data destination ?:
+								</td>
+								<td>
+									<select id="strm" name="strm">
+										<option value="browser">Browser</option>
+										<option value="cfile">File</option>
+									</select>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				
+				<tr>
+					<td colspan="4" align="center">
+						<input type="submit" value="Generate"></input>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</form>
+	
+	<div id="dataContent" name="dataContent" align="center">
+		Data will be here
+		<iframe id="resultData" name="resultData" class="hide"></iframe>
+	</div>
+	
+	<h4 class="pagehead">Developed at UC Riverside Big Data Lab</h4>
+	<h5 class="pagehead">By Puloma Katiyar and Dr. Ahmed Eldawy</h5>
+</html>

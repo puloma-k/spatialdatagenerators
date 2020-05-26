@@ -53,6 +53,11 @@ class PointGenerator(Generator):
         if self.strm == "cfile":
             bz2_compressor = bz2.BZ2Compressor()
             
+        if self.output_format == "gjson":
+            sys.stdout.buffer.write(bytes('{"type": "FeatureCollection", "features": [', 'utf-8'))
+        if self.output_format == "wkt":
+            sys.stdout.buffer.write(bytes('MULTIPOINT (', 'utf-8'))
+            
         while i < self.card:
             point = self.generate_point(i, prev_point)
             if self.is_valid_point(point):
@@ -62,7 +67,16 @@ class PointGenerator(Generator):
                     data = bz2_compressor.compress(data)
                 sys.stdout.buffer.write(data)
                 i = i + 1
-                
+                if self.output_format == "gjson" and i < self.card:
+                    sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                if self.output_format == "wkt" and i < self.card:
+                    sys.stdout.buffer.write(bytes(',', 'utf-8'))
+            
+        if self.output_format == "gjson":
+            sys.stdout.buffer.write(bytes(']}', 'utf-8')) 
+        if self.output_format == "wkt":
+            sys.stdout.buffer.write(bytes(')', 'utf-8'))  
+         
         if self.strm == "cfile":       
             data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
             sys.stdout.buffer.write(data)
@@ -186,6 +200,11 @@ class ParcelGenerator(PointGenerator):
         numToSplit = self.card - pow(2, max(max_height - 1, 0))
         numSplit = 0
         boxes_generated = 0
+        
+        if self.output_format == "gjson":
+            sys.stdout.buffer.write(bytes('{"type": "FeatureCollection", "features": [', 'utf-8'))
+        if self.output_format == "wkt":
+            sys.stdout.buffer.write(bytes('MULTIPOLYGON (', 'utf-8'))
 
         while boxes_generated < self.card:
             b = boxes.pop()
@@ -195,17 +214,35 @@ class ParcelGenerator(PointGenerator):
                     b1, b2 = self.split(b, boxes)
                     numSplit += 1
                     self.dither_and_print(b1, bz2_compressor)
+                    if self.output_format == "gjson":
+                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                    if self.output_format == "wkt":
+                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
                     self.dither_and_print(b2, bz2_compressor)
                     boxes_generated += 2
+                    if self.output_format == "gjson" and boxes_generated < self.card:
+                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                    if self.output_format == "wkt" and boxes_generated < self.card:
+                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
                 else: # Print remaining boxes from the second to last level 
                     self.dither_and_print(b, bz2_compressor)
+                    boxes_generated += 1
+                    if self.output_format == "gjson" and boxes_generated < self.card:
+                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                    if self.output_format == "wkt" and boxes_generated < self.card:
+                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
                     if boxes_generated == 10: # Early flush to ensure immediate download of data
                         sys.stdout.buffer.flush()
-                    boxes_generated += 1
+  
             else:
                 b1, b2 = self.split(b, boxes)
                 boxes.append(b2)
                 boxes.append(b1)
+                
+        if self.output_format == "gjson":
+            sys.stdout.buffer.write(bytes(']}', 'utf-8'))
+        if self.output_format == "wkt":
+            sys.stdout.buffer.write(bytes(')', 'utf-8'))
                 
         if self.strm == "cfile":       
             data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
@@ -245,6 +282,8 @@ class Geometry(ABC):
             return self.to_csv_string()
         elif output_format == 'wkt':
             return self.to_wkt_string()
+        elif output_format == 'gjson':
+            return self.to_gjson_string()
         else:
             print('Please check the output format.')
             sys.exit()
@@ -255,6 +294,10 @@ class Geometry(ABC):
 
     @abstractmethod
     def to_wkt_string(self):
+        pass
+    
+    @abstractmethod
+    def to_gjson_string(self):
         pass
 
 
@@ -267,7 +310,21 @@ class Point(Geometry):
         return ','.join(str(x) for x in self.coordinates)
 
     def to_wkt_string(self):
-        return 'POINT ({0})'.format(' '.join(str(x) for x in self.coordinates))
+        return '({0})'.format(' '.join(str(x) for x in self.coordinates))
+#         return 'POINT ({0})'.format(' '.join(str(x) for x in self.coordinates))
+    
+    def to_gjson_string(self):    
+        json_str = '{"type": "Feature", "geometry": { "type": "Point", "coordinates": ['
+        i = 1
+        num_dim = len(self.coordinates)
+        for x in self.coordinates:
+            json_str += str(x)
+            if i != num_dim:
+                json_str += ','
+            i += 1
+        return json_str + ']}, "properties": null}'
+        
+                    
 
 
 class Box(Geometry):
@@ -283,7 +340,15 @@ class Box(Geometry):
 
     def to_wkt_string(self):
         x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
-        return 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
+        return '(({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
+#         return 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}))'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
+    
+    def to_gjson_string(self):
+        x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
+        json_str = '{"type": "Feature", "geometry": { "type": "Polygon", "coordinates": ['
+        json_str += '[{}, {}], [{}, {}], [{}, {}], [{}, {}], [{}, {}]'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
+        json_str += ']}, "properties": null}'
+        return json_str
     
     
 @dataclass
@@ -347,13 +412,13 @@ def main():
         sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
     sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
     
-    if strm != "cfile":
-        sys.stdout.buffer.write(bytes("<pre>", 'utf-8'))
+#     if strm != "cfile":
+#         sys.stdout.buffer.write(bytes("<pre>", 'utf-8'))
     
     generator.generate_and_write()
     
-    if strm != "cfile":
-        sys.stdout.buffer.write(bytes("</pre>", 'utf-8'))
+#     if strm != "cfile":
+#         sys.stdout.buffer.write(bytes("</pre>", 'utf-8'))
 
 if __name__ == "__main__":
     main()
