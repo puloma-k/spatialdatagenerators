@@ -2,7 +2,7 @@
 <html>
 <head>
 	<meta name="description" content="Spatial data generator developed at UC Riverside by Puloma Katiyar under guidance of Dr. Ahmed Eldawy">
-	<meta name="keywords" content="Spatial data, data generator, UCR, UC Riverside, UCR database lab, test data, Puloma Katiyar, Ahmed Eldawy, computer science">
+	<meta name="keywords" content="Spatial data, data generator, UCR, UC Riverside, UCR big data lab, test data, Puloma Katiyar, Ahmed Eldawy, computer science">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<link rel="shortcut icon" href="sk.ico">
 	<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
@@ -97,11 +97,13 @@
 
 			XHR = new XMLHttpRequest();
 			XHR.addEventListener( 'load', function(event) {
+				// alert(XHR.responseText);
 				document.getElementById("dataContent").innerHTML = "";
+				// document.getElementById("dataContent").innerHTML = XHR.responseText;
                 var vectorLayer = new ol.layer.Vector({
                     source: new ol.source.Vector({
-                        // features: (new ol.format.GeoJSON()).readFeatures(XHR.responseText)
-                        features: (new ol.format.WKT()).readFeatures(XHR.responseText)
+                        features: (new ol.format.GeoJSON()).readFeatures(XHR.responseText)
+                        // features: (new ol.format.WKT()).readFeatures(XHR.responseText)
                     })
                 });
                 
@@ -176,6 +178,7 @@
 						<select id="dim" name="dim">
 							<option value="2">2</option>
 							<option value="3">3</option>
+							<option value="4">4</option>
 						</select>
 					</td>
 					<td class="optionlabel2">
