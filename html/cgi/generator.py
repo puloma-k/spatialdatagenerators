@@ -202,7 +202,7 @@ class ParcelGenerator(PointGenerator):
         boxes_generated = 0
         
         if self.output_format == "gjson":
-            sys.stdout.buffer.write(bytes('{"type": "FeatureCollection", "features": [', 'utf-8'))
+            sys.stdout.buffer.write(bytes('{"type": "FeatureCollection", "features": [{ "type": "Feature", "geometry": { "type": "MultiPolygon", "coordinates": [', 'utf-8'))
         if self.output_format == "wkt":
             sys.stdout.buffer.write(bytes('MULTIPOLYGON (', 'utf-8'))
 
@@ -214,22 +214,16 @@ class ParcelGenerator(PointGenerator):
                     b1, b2 = self.split(b, boxes)
                     numSplit += 1
                     self.dither_and_print(b1, bz2_compressor)
-                    if self.output_format == "gjson":
-                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
-                    if self.output_format == "wkt":
+                    if self.output_format == "gjson" or self.output_format == "wkt":
                         sys.stdout.buffer.write(bytes(',', 'utf-8'))
                     self.dither_and_print(b2, bz2_compressor)
                     boxes_generated += 2
-                    if self.output_format == "gjson" and boxes_generated < self.card:
-                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
-                    if self.output_format == "wkt" and boxes_generated < self.card:
+                    if (self.output_format == "gjson" or self.output_format == "wkt") and boxes_generated < self.card:
                         sys.stdout.buffer.write(bytes(',', 'utf-8'))
                 else: # Print remaining boxes from the second to last level 
                     self.dither_and_print(b, bz2_compressor)
                     boxes_generated += 1
-                    if self.output_format == "gjson" and boxes_generated < self.card:
-                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
-                    if self.output_format == "wkt" and boxes_generated < self.card:
+                    if (self.output_format == "gjson" or self.output_format == "wkt") and boxes_generated < self.card:
                         sys.stdout.buffer.write(bytes(',', 'utf-8'))
                     if boxes_generated == 10: # Early flush to ensure immediate download of data
                         sys.stdout.buffer.flush()
@@ -240,7 +234,7 @@ class ParcelGenerator(PointGenerator):
                 boxes.append(b1)
                 
         if self.output_format == "gjson":
-            sys.stdout.buffer.write(bytes(']}', 'utf-8'))
+            sys.stdout.buffer.write(bytes(']}, "properties": null }]}', 'utf-8'))
         if self.output_format == "wkt":
             sys.stdout.buffer.write(bytes(')', 'utf-8'))
                 
@@ -265,7 +259,7 @@ class ParcelGenerator(PointGenerator):
     def dither_and_print(self, b, bz2_compressor):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
         b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
-        
+
         data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
         if self.strm == "cfile":
             data = bz2_compressor.compress(data)
@@ -345,9 +339,9 @@ class Box(Geometry):
     
     def to_gjson_string(self):
         x1, y1, x2, y2 = self.x, self.y, self.x + self.w, self.y + self.h
-        json_str = '{"type": "Feature", "geometry": { "type": "Polygon", "coordinates": ['
-        json_str += '[{}, {}], [{}, {}], [{}, {}], [{}, {}], [{}, {}]'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
-        json_str += ']}, "properties": null}'
+#         json_str = '{"type": "Feature", "geometry": { "type": "Polygon", "coordinates": ['
+        json_str = '[[[{}, {}], [{}, {}], [{}, {}], [{}, {}], [{}, {}]]]'.format(x1, y1, x2, y1, x2, y2, x1, y2, x1, y1)
+#         json_str += ']}, "properties": null}'
         return json_str
     
     
@@ -362,7 +356,10 @@ def main():
     # Enable following url to debug without web server
 #     url = "http://localhost/cgi/generator.py?dist=parcel&card=5&geo=box&dim=2&fmt=wkt&dith=0&sran=0.5&strm=s"
 
-    pDict = dict(parse.parse_qsl(parse.urlparse(url).query)) # Parse url to get parameters in pDict
+    pDict = dict(parse.parse_qsl(parse.urlparse(url).query, keep_blank_values=True)) # Parse url to get parameter values in pDict
+    
+    if pDict['seed']:
+        rand.seed(int(pDict['seed']))
 
     try:
         card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
