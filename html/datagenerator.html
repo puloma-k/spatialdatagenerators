@@ -126,49 +126,90 @@
 			document.getElementById(inputId).innerHTML = "";
 		}
 		
-		function buildURL() {
-			var url = "http://localhost/cgi/generator.py?";
-			url += "dist=" + encodeURIComponent(document.getElementById("dist").value);
-			url += "&card=" + encodeURIComponent(document.getElementById("card").value);
-			url += "&dim=" + encodeURIComponent(document.getElementById("dim").value);
-			url += "&fmt=" + encodeURIComponent(document.getElementById("fmt").value);
-			url += "&strm=" + encodeURIComponent(document.getElementById("strm").value);
-			url += "&geo=point";
-			url += "&seed=" + encodeURIComponent(document.getElementById("seed").value);
+		function buildURL(forRender) {
+		
+			var paramVals = {
+				"card": document.getElementById("card").value,
+				"dist": document.getElementById("dist").value,
+				"dim": document.getElementById("dim").value,
+				"fmt": document.getElementById("fmt").value,
+				"geo": "point",
+				"seed": document.getElementById("seed").value
+			};
 			
-			var inputVal = encodeURIComponent(document.getElementById("per").value);
+			var inputVal = document.getElementById("per").value;
 			if(!document.getElementById("per").disabled && inputVal)
-				url += "&per=" + inputVal;
-			inputVal = encodeURIComponent(document.getElementById("buf").value);
+				paramVals["per"] = inputVal;
+			inputVal = document.getElementById("buf").value;
 			if(!document.getElementById("buf").disabled && inputVal)
-				url += "&buf=" + inputVal;
-			inputVal = encodeURIComponent(document.getElementById("prob").value);
+				paramVals["buf"] = inputVal;		
+			inputVal = document.getElementById("prob").value;
 			if(!document.getElementById("prob").disabled && inputVal)
-				url += "&prob=" + inputVal;
-			inputVal = encodeURIComponent(document.getElementById("dig").value);
+				paramVals["prob"] = inputVal;		
+			inputVal = document.getElementById("dig").value;
 			if(!document.getElementById("dig").disabled && inputVal)
-				url += "&dig=" + inputVal;
-			inputVal = encodeURIComponent(document.getElementById("sran").value);
+				paramVals["dig"] = inputVal;		
+			inputVal = document.getElementById("sran").value;
 			if(!document.getElementById("sran").disabled && inputVal)
-				url += "&sran=" + inputVal;
-			inputVal = encodeURIComponent(document.getElementById("dith").value);
+				paramVals["sran"] = inputVal;		
+			inputVal = document.getElementById("dith").value;
 			if(!document.getElementById("dith").disabled && inputVal)
-				url += "&dith=" + inputVal;	
+				paramVals["dith"] = inputVal;	
+				
+			if(forRender) {
+				var message = "";
+				if(paramVals["card"] > 1000) {
+					paramVals["card"] = 1000;
+					message += "Only up to 1000 points supported for visualization. Cardinality overridden.";
+				}
+				if(paramVals["dim"] > 2) {
+					paramVals["dim"] = 2;
+					if(message)
+						message += "<br>";
+					message += "Only 2D supported for visualization. Dimensions overridden.";
+				}
+				paramVals["fmt"] = "wkt";
+				paramVals["strm"] = "browser";
+				document.getElementById("renderMessage").innerHTML = message;
+			} else {
+				paramVals["strm"] = "cfile";
+			}
+			
+			if(!paramVals["seed"]) {
+				var d = new Date();
+				paramVals["seed"] = d.getTime();
+			}
+			
+			var url = "http://localhost/cgi/generator.py?";
+			for(var key in paramVals) {
+				url += (key + "=" + encodeURIComponent(paramVals[key]) + "&");
+			}						
 			return url;																			
 		}
 		
-		function submitAndRender() {
+		function submitAndDownload() {
+			formURL = buildURL(false);
+			document.getElementById("downloadError").src = formURL;
+		}
+		
+		function submitAndRender(inputId) {
+			if(inputId == "dist")
+				updateInputs();
+			else
+				resetInputError(inputId);
 			if(!validInputs())
 				return;
-			formURL = buildURL();
+			formURL = buildURL(true);
 
-			XHR = new XMLHttpRequest();
+			var XHR = new XMLHttpRequest();
 			XHR.addEventListener( 'load', function(event) {
+				if(XHR.status != 200) {
+					document.getElementById("renderMessage").innerHTML = `Error ${XHR.status}: ${XHR.statusText}`;
+					return;
+				}
 				document.getElementById("dataContent").innerHTML = "";
-				// document.getElementById("dataContent").innerHTML = XHR.responseText;
                 var vectorLayer = new ol.layer.Vector({
                     source: new ol.source.Vector({
-                        // features: (new ol.format.GeoJSON()).readFeatures(XHR.responseText)
                         features: (new ol.format.WKT()).readFeatures(XHR.responseText)
                     })
                 });
@@ -185,40 +226,28 @@
                 });
 			});
 			XHR.addEventListener( 'error', function(event) {
-				alert( event ); // TODO: show error correctly
+				document.getElementById("renderMessage").innerHTML = `Error ${XHR.status}: ${XHR.statusText}`;
 			});
 			XHR.open( 'GET', formURL);
 			XHR.send(null);
-
-		/*
-			var vectorSource = new ol.layer.GeoJSON({
-        		projection: 'EPSG:3857',
-        		url: formURL
-      		});
-
-            var vectorSource = new VectorSource({
-                features: (new ol.format.GeoJSON()).readFeatures(XHR.responseText)
-            });
-      		
-		*/
 		}
 		
 	</script>
 
 </head>
 
-<body style="background-color:#FEFEFF;" onload="disableInputs()">
+<body style="background-color:#FEFEFF;" onload="submitAndRender('dist')">
 	<h1 class="pagehead">Spatial Data Generator</h1>
 	
-	<form id="datareq" action="javascript:void(0);" onSubmit="submitAndRender()">
+	<form id="datareq" action="javascript:void(0);" onSubmit="submitAndDownload()">
 		<table class="bigtab" border="0" cellspacing="10" width="98%">
 			<tbody>
 				<tr>
 					<td class="optionlabel1">
-						Distribution ?:
+						Distribution:
 					</td>
 					<td class="optiondata1">
-						<select id="dist" name="dist" onchange="updateInputs()">
+						<select id="dist" name="dist" onchange="submitAndRender('dist')">
 							<option value="uniform">Uniform</option>
 							<option value="diagonal">Diagonal</option>
 							<option value="gaussian">Gaussian</option>
@@ -228,27 +257,27 @@
 						</select>
 					</td>
 					<td class="optionlabel2">
-						Cardinality ?:	
+						Cardinality:	
 					</td>
 					<td class="optiondata2">
-						<input type="number" value="100" id="card" name="card" onchange="resetInputError('cardInputError')"></input>
+						<input type="number" value="100" id="card" name="card" onchange="submitAndRender('cardInputError')"></input>
 						<div class="inputError" id="cardInputError"></div>
 					</td>
 				</tr>
 				
 				<tr>
 					<td class="optionlabel1">
-						Dimension ?:
+						Dimension:
 					</td>
 					
 					<td class="optiondata1">
-						<input type="number" value="2" id="dim" name="dim" onchange="resetInputError('dimInputError')"></input>
+						<input type="number" value="2" id="dim" name="dim" onchange="submitAndRender('dimInputError')"></input>
 						<div class="inputError" id="dimInputError"></div>
 					</td>					
 					
 					
 					<td class="optionlabel2">
-						Format ?:
+						Format:
 					</td>
 					<td class="optiondata2">
 						<select id="fmt" name="fmt">
@@ -261,85 +290,80 @@
 				
 				<tr>
 					<td class="optionlabel1">
-						Percentage ?:
+						Percentage:
 					</td>
 					<td class="optiondata1">
-						<input type="text" value="0.5" id="per" name="per" onchange="resetInputError('perInputError')"></input>
+						<input type="text" value="0.5" id="per" name="per" onchange="submitAndRender('perInputError')"></input>
 						<div class="inputError" id="perInputError"></div>
 					</td>
 					<td class="optionlabel2">
-						Buffer ?:
+						Buffer:
 					</td>
 					<td class="optiondata2">
-						<input type="text" value="0.5" id="buf" name="buf" onchange="resetInputError('bufInputError')"></input>
+						<input type="text" value="0.5" id="buf" name="buf" onchange="submitAndRender('bufInputError')"></input>
 						<div class="inputError" id="bufInputError"></div>
 					</td>
 				</tr>
 				
 				<tr>
 					<td class="optionlabel1">
-						Probability ?:
+						Probability:
 					</td>
 					<td class="optiondata1">
-						<input type="text" value="0.5" id="prob" name="prob" onchange="resetInputError('probInputError')"></input>
+						<input type="text" value="0.5" id="prob" name="prob" onchange="submitAndRender('probInputError')"></input>
 						<div class="inputError" id="probInputError"></div>
 					</td>
 					<td class="optionlabel2">
-						Digits ?:
+						Digits:
 					</td>
 					<td class="optiondata2">
-						<input type="number" value="2" id="dig" name="dig" onchange="resetInputError('digInputError')"></input>
+						<input type="number" value="2" id="dig" name="dig" onchange="submitAndRender('digInputError')"></input>
 						<div class="inputError" id="digInputError"></div>
 					</td>
 				</tr>
 				
 				<tr>
 					<td class="optionlabel1">
-						Split range ?:
+						Split range:
 					</td>
 					<td class="optiondata1">
-						<input type="text" value="0.5" id="sran" name="sran" onchange="resetInputError('sranInputError')"></input>
+						<input type="text" value="0.5" id="sran" name="sran" onchange="submitAndRender('sranInputError')"></input>
 						<div class="inputError" id="sranInputError"></div>
 					</td>
 					<td class="optionlabel2">
-						Dither ?:
+						Dither:
 					</td>
 					<td class="optiondata2">
-						<input type="text" value="0.5" id="dith" name="dith" onchange="resetInputError('dithInputError')"></input>
+						<input type="text" value="0.5" id="dith" name="dith" onchange="submitAndRender('dithInputError')"></input>
 						<div class="inputError" id="dithInputError"></div>
 					</td>
 				</tr>
 				
 				<tr>
 					<td class="optionlabel1">
-						Seed value ?:
+						Seed value:
 					</td>
 					<td class="optiondata1">
-						<input type="number" id="seed" name="seed" onchange="resetInputError('seedInputError')"></input>
+						<input type="number" id="seed" name="seed" onchange="submitAndRender('seedInputError')"></input>
 						<div class="inputError" id="seedInputError"></div>
 					</td>
-					<td class="optionlabel2">
-						Data destination ?:
-					</td>
-					<td class="optiondata2">
-						<select id="strm" name="strm">
-							<option value="browser">Browser</option>
-							<option value="cfile">File</option>
-						</select>						
-					</td>					
 				</tr>
 				
 				<tr>
 					<td colspan="4" align="center">
-						<input type="submit" value="Generate"></input>
+						<input type="submit" value="Download"></input>
 					</td>
 				</tr>
+				
 			</tbody>
 		</table>
 	</form>
 	
+	<div id="downloadErrorDiv" name="downloadErrorDiv"> <iframe id="downloadError" name="downloadError" class="hide"> </iframe> </div>
+	<div id="renderMessage" name="renderMessage"> </div>
+	
 	<div id="dataContent" name="dataContent" align="center">
-		Data will be here
+		Data should be rendered here.
 		<iframe id="resultData" name="resultData" class="hide"></iframe>
 	</div>
 	
