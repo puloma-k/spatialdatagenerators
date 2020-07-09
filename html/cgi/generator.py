@@ -18,6 +18,7 @@ class Generator(ABC):
         self.dist = dist
         self.output_format = output_format
         self.strm = strm
+        self.compressor = None
 
     def bernoulli(self, p):
         return 1 if rand.random() < p else 0
@@ -34,6 +35,12 @@ class Generator(ABC):
     @abstractmethod
     def generate(self):
         pass
+    
+    def write_out(self, data_str):
+        data_bytes = bytes(data_str, 'utf-8')
+        if(self.compressor):
+            data_bytes = self.compressor.compress(data_bytes)
+        sys.stdout.buffer.write(data_bytes)
 
 
 class PointGenerator(Generator):
@@ -51,39 +58,38 @@ class PointGenerator(Generator):
         i = 0
         
         if self.strm == "cfile":
-            bz2_compressor = bz2.BZ2Compressor()
+            self.compressor = bz2.BZ2Compressor()
             
         if self.output_format == "gjson":
-            sys.stdout.buffer.write(bytes('{"type": "FeatureCollection", "features": [', 'utf-8'))
+            self.write_out('{"type": "FeatureCollection", "features": [')
         if self.output_format == "wkt":
-            sys.stdout.buffer.write(bytes('MULTIPOINT (', 'utf-8'))
+            self.write_out('MULTIPOINT (')
             
         while i < self.card:
             point = self.generate_point(i, prev_point)
             if self.is_valid_point(point):
                 prev_point = point
-                data = bytes(prev_point.to_string(self.output_format) + '\n', 'utf-8')
-                if self.strm == "cfile":
-                    data = bz2_compressor.compress(data)
-                sys.stdout.buffer.write(data)
+                data = prev_point.to_string(self.output_format) + '\n'
+                self.write_out(data)
                 i = i + 1
                 if self.output_format == "gjson" and i < self.card:
-                    sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                    self.write_out(',')
                 if self.output_format == "wkt" and i < self.card:
-                    sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                    self.write_out(',')
             
         if self.output_format == "gjson":
-            sys.stdout.buffer.write(bytes(']}', 'utf-8')) 
+            self.write_out(']}') 
         if self.output_format == "wkt":
-            sys.stdout.buffer.write(bytes(')', 'utf-8'))  
+            self.write_out(')')  
          
         if self.strm == "cfile":       
-            data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
+            data = self.compressor.flush() # Get the last bits of data remaining in the compressor
             sys.stdout.buffer.write(data)
         
     @abstractmethod
     def generate_point(self, i, prev_point):
         pass
+    
 
 
 class UniformGenerator(PointGenerator):
@@ -184,8 +190,9 @@ class ParcelGenerator(PointGenerator):
 
     def generate_and_write(self):
         # Tried gzip and underlying zlib, neither has a bug-free implementation in Python
-        # bz2 is the only real option               
-        bz2_compressor = bz2.BZ2Compressor()
+        # bz2 is the only real option
+        if(self.strm == "cfile"):               
+            self.compressor = bz2.BZ2Compressor()
             
         # Using dataclass to create BoxWithDepth, which stores depth of each box in the tree
         # Depth is used to determine at which level to stop splitting and start printing    
@@ -202,9 +209,9 @@ class ParcelGenerator(PointGenerator):
         boxes_generated = 0
         
         if self.output_format == "gjson":
-            sys.stdout.buffer.write(bytes('{"type": "FeatureCollection", "features": [{ "type": "Feature", "geometry": { "type": "MultiPolygon", "coordinates": [', 'utf-8'))
+            self.write_out('{"type": "FeatureCollection", "features": [{ "type": "Feature", "geometry": { "type": "MultiPolygon", "coordinates": [')
         if self.output_format == "wkt":
-            sys.stdout.buffer.write(bytes('MULTIPOLYGON (', 'utf-8'))
+            self.write_out('MULTIPOLYGON (')
 
         while boxes_generated < self.card:
             b = boxes.pop()
@@ -213,18 +220,18 @@ class ParcelGenerator(PointGenerator):
                 if numSplit < numToSplit: # Split at second to last level and print the new boxes
                     b1, b2 = self.split(b, boxes)
                     numSplit += 1
-                    self.dither_and_print(b1, bz2_compressor)
+                    self.dither_and_print(b1)
                     if self.output_format == "gjson" or self.output_format == "wkt":
-                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
-                    self.dither_and_print(b2, bz2_compressor)
+                        self.write_out(',')
+                    self.dither_and_print(b2)
                     boxes_generated += 2
                     if (self.output_format == "gjson" or self.output_format == "wkt") and boxes_generated < self.card:
-                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                        self.write_out(',')
                 else: # Print remaining boxes from the second to last level 
-                    self.dither_and_print(b, bz2_compressor)
+                    self.dither_and_print(b)
                     boxes_generated += 1
                     if (self.output_format == "gjson" or self.output_format == "wkt") and boxes_generated < self.card:
-                        sys.stdout.buffer.write(bytes(',', 'utf-8'))
+                        self.write_out(',')
                     if boxes_generated == 10: # Early flush to ensure immediate download of data
                         sys.stdout.buffer.flush()
   
@@ -234,9 +241,9 @@ class ParcelGenerator(PointGenerator):
                 boxes.append(b1)
                 
         if self.output_format == "gjson":
-            sys.stdout.buffer.write(bytes(']}, "properties": null }]}', 'utf-8'))
+            self.write_out(']}, "properties": null }]}')
         if self.output_format == "wkt":
-            sys.stdout.buffer.write(bytes(')', 'utf-8'))
+            self.write_out(')')
                 
         if self.strm == "cfile":       
             data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
@@ -256,14 +263,12 @@ class ParcelGenerator(PointGenerator):
             b2 = BoxWithDepth(Box(b.box_field.x, b.box_field.y + split_size, b.box_field.w, b.box_field.h - split_size), b.depth+1) 
         return b1, b2
     
-    def dither_and_print(self, b, bz2_compressor):
+    def dither_and_print(self, b):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
         b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
 
-        data = bytes(b.box_field.to_string(self.output_format) + '\n', 'utf-8')
-        if self.strm == "cfile":
-            data = bz2_compressor.compress(data)
-        sys.stdout.buffer.write(data)
+        data = b.box_field.to_string(self.output_format) + '\n'
+        self.write_out(data)
         
     def generate_point(self, i, prev_point):
         PointGenerator.generate_point(self, i, prev_point)
