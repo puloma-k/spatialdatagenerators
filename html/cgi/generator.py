@@ -368,8 +368,12 @@ def main():
 
     try:
         card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
-    except RuntimeError:
-        print('Please check your arguments')
+    except (BaseException, Exception, ArithmeticError, BufferError, LookupError):
+        sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
+        sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
+        sys.stdout.buffer.write(bytes("Please check your arguments", 'utf-8'))
+        sys.stderr.write("Please check your arguments")
+        exit(1)
 
     if dist == 'uniform':
         generator = UniformGenerator(card, geo, dim, dist, output_format, strm)

@@ -18,6 +18,7 @@
 		.optiondata2 { width: 35%; }
 		.hide { position:absolute; top:-1px; left:-1px; width:1px; height:1px; }
 		.inputError { color: red; font-size: 15px; }
+		.transformfields { text-align: right; }
 		#dataContent { width: 70%; height: 300px; }
 	</style>
 
@@ -114,11 +115,10 @@
 				valid = false;
 			}
 			val = document.getElementById("seed").value
-			if(val && (val < 0 || val > 1000000000000)) { // arbitrarily set max to 1 trillion
+			if(val && (val < 0 || val > 100000000000000)) { // arbitrarily set max to 100 trillion
 				document.getElementById("seedInputError").innerHTML = "Valid val >= 0 and < 1 trillion";
 				valid = false;
 			}						
-			
 			return valid;
 		}
 		
@@ -126,8 +126,7 @@
 			document.getElementById(inputId).innerHTML = "";
 		}
 		
-		function buildURL(forRender) {
-		
+		function buildURL(forRender, forPlink) {
 			var paramVals = {
 				"card": document.getElementById("card").value,
 				"dist": document.getElementById("dist").value,
@@ -155,6 +154,23 @@
 			inputVal = document.getElementById("dith").value;
 			if(!document.getElementById("dith").disabled && inputVal)
 				paramVals["dith"] = inputVal;	
+
+			var inputVal1 = document.getElementById("a1").value;
+			var inputVal2 = document.getElementById("a2").value;
+			var inputVal3 = document.getElementById("a3").value;
+			var inputVal4 = document.getElementById("a4").value;
+			var inputVal5 = document.getElementById("a5").value;
+			var inputVal6 = document.getElementById("a6").value;
+			if(!inputVal1 || !inputVal2 || !inputVal3 || !inputVal4|| !inputVal5 || !inputVal6) {
+				document.getElementById("transformMessage").innerHTML = "Fill all parameters for transformation.";
+			} else {
+				paramVals["a1"] = inputVal1;
+				paramVals["a2"] = inputVal2;
+				paramVals["a3"] = inputVal3;
+				paramVals["a4"] = inputVal4;
+				paramVals["a5"] = inputVal5;
+				paramVals["a6"] = inputVal6;
+			}
 				
 			if(forRender) {
 				var message = "";
@@ -180,7 +196,10 @@
 				paramVals["seed"] = d.getTime();
 			}
 			
-			var url = "http://localhost/cgi/generator.py?";
+			if(forPlink)
+				var url = "http://localhost/datagenerator.html?";
+			else
+				var url = "http://localhost/cgi/generator.py?";
 			for(var key in paramVals) {
 				url += (key + "=" + encodeURIComponent(paramVals[key]) + "&");
 			}						
@@ -188,7 +207,7 @@
 		}
 		
 		function submitAndDownload() {
-			formURL = buildURL(false);
+			formURL = buildURL(false, false);
 			document.getElementById("downloadError").src = formURL;
 		}
 		
@@ -199,7 +218,9 @@
 				resetInputError(inputId);
 			if(!validInputs())
 				return;
-			formURL = buildURL(true);
+			formURL = buildURL(true, false);
+			permalink = buildURL(false, true);
+			document.getElementById("plink").value = permalink;
 
 			var XHR = new XMLHttpRequest();
 			XHR.addEventListener( 'load', function(event) {
@@ -232,11 +253,53 @@
 			XHR.send(null);
 		}
 		
+		function setupSubmitAndRender() {
+			var curURL = new URL(window.location);
+			var paramString = new URLSearchParams(curURL.searchParams);
+			if(paramString != "") {
+				if(paramString.has("dist"))
+					document.getElementById('dist').value = paramString.get("dist");
+				if(paramString.has("card"))
+					document.getElementById('card').value = paramString.get("card");
+				if(paramString.has("dim"))
+					document.getElementById('dim').value = paramString.get("dim");
+				if(paramString.has("fmt"))
+					document.getElementById('fmt').value = paramString.get("fmt");
+				if(paramString.has("per"))
+					document.getElementById('per').value = paramString.get("per");
+				if(paramString.has("buf"))
+					document.getElementById('buf').value = paramString.get("buf");
+				if(paramString.has("prob"))
+					document.getElementById('prob').value = paramString.get("prob");
+				if(paramString.has("dig"))
+					document.getElementById('dig').value = paramString.get("dig");
+				if(paramString.has("sran"))
+					document.getElementById('sran').value = paramString.get("sran");
+				if(paramString.has("dith"))
+					document.getElementById('dith').value = paramString.get("dith");
+				if(paramString.has("seed"))
+					document.getElementById('seed').value = paramString.get("seed");
+				if(paramString.has("a1"))
+					document.getElementById('a1').value = paramString.get("a1");	
+				if(paramString.has("a2"))
+					document.getElementById('a2').value = paramString.get("a2");
+				if(paramString.has("a3"))
+					document.getElementById('a3').value = paramString.get("a3");
+				if(paramString.has("a4"))
+					document.getElementById('a4').value = paramString.get("a4");
+				if(paramString.has("a5"))
+					document.getElementById('a5').value = paramString.get("a5");
+				if(paramString.has("a6"))
+					document.getElementById('a6').value = paramString.get("a6");									
+			}
+			submitAndRender('dist');
+		}
+		
 	</script>
 
 </head>
 
-<body style="background-color:#FEFEFF;" onload="submitAndRender('dist')">
+<body style="background-color:#FEFEFF;" onload="setupSubmitAndRender()">
 	<h1 class="pagehead">Spatial Data Generator</h1>
 	
 	<form id="datareq" action="javascript:void(0);" onSubmit="submitAndDownload()">
@@ -347,6 +410,13 @@
 						<input type="number" id="seed" name="seed" onchange="submitAndRender('seedInputError')"></input>
 						<div class="inputError" id="seedInputError"></div>
 					</td>
+					
+					<td class="optionlabel2">
+						Permalink:
+					</td>
+					<td class="optiondata2">
+						<input type="text" id="plink" name="plink" value="" readonly></input>
+					</td>
 				</tr>
 				
 				<tr>
@@ -357,15 +427,74 @@
 				
 			</tbody>
 		</table>
+
+		<div id="downloadErrorDiv" name="downloadErrorDiv"> <iframe id="downloadError" name="downloadError" class="hide"> </iframe> </div>
+		<div id="renderMessage" name="renderMessage"> </div>
+		
+		<div id="dataContent" name="dataContent" align="left">
+			Data should be rendered here.
+			<iframe id="resultData" name="resultData" class="hide"></iframe>
+		</div>
+
+		<div id="transformMessage" name="transformMessage" align="center"> </div>
+		<table class="bigtab" border="0" cellspacing="10" width="98%">
+			<tbody>
+				<tr>
+					<td class="optionlabel1">
+						a1:
+					</td>
+					<td class="optiondata1">
+						<input type="text" id="a1" name="a1" value="0"></input>
+					</td>
+					<td class="optionlabel2">
+						a2:
+					</td>
+					<td class="optiondata2">
+						<input type="text" id="a2" name="a2" value="0"></input>
+					</td>
+				</tr>
+				<tr>
+					<td class="optionlabel1">
+						a3:
+					</td>
+					<td class="optiondata1">
+						<input type="text" id="a3" name="a3" value="0"></input>
+					</td>
+					<td class="optionlabel2">
+						a4:
+					</td>
+					<td class="optiondata2">
+						<input type="text" id="a4" name="a4" value="0"></input>
+					</td>
+				</tr>
+				<tr>
+					<td class="optionlabel1">
+						a5:
+					</td>
+					<td class="optiondata1">
+						<input type="text" id="a5" name="a5" value="0"></input>
+					</td>
+					<td class="optionlabel2">
+						a6:
+					</td>
+					<td class="optiondata2">
+						<input type="text" id="a6" name="a6" value="0"></input>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
 	</form>
 	
-	<div id="downloadErrorDiv" name="downloadErrorDiv"> <iframe id="downloadError" name="downloadError" class="hide"> </iframe> </div>
+	<!-- <div id="downloadErrorDiv" name="downloadErrorDiv"> <iframe id="downloadError" name="downloadError" class="hide"> </iframe> </div>
 	<div id="renderMessage" name="renderMessage"> </div>
 	
-	<div id="dataContent" name="dataContent" align="center">
+	<div id="dataContent" name="dataContent" align="left">
 		Data should be rendered here.
 		<iframe id="resultData" name="resultData" class="hide"></iframe>
-	</div>
+	</div> -->
+
+
 	
 	<h4 class="pagehead">Developed at UC Riverside Big Data Lab</h4>
 	<h5 class="pagehead">By Puloma Katiyar and Dr. Ahmed Eldawy</h5>
