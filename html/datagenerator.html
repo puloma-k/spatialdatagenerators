@@ -24,6 +24,7 @@
 
 	<title>Spatial Data Generator</title>
 	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 	<script>
 		var fEnableObj = {
 			"perc": "diagonal",
@@ -36,133 +37,133 @@
 		}
 		
 		function disableInputs() {
-			var distType = document.getElementById("dist").value
+			var distType = $("#dist").val();
 			if(fEnableObj.perc != distType)
-				document.getElementById("per").disabled = true;
+				$("#per").prop("disabled", true);
 			if(fEnableObj.buf != distType)
-				document.getElementById("buf").disabled = true;
+				$("#buf").prop("disabled", true);
 			if(fEnableObj.prob != distType)
-				document.getElementById("prob").disabled = true;
+				$("#prob").prop("disabled", true);
 			if(fEnableObj.dig != distType)
-				document.getElementById("dig").disabled = true;
+				$("#dig").prop("disabled", true);
 			if(fEnableObj.sran != distType)
-				document.getElementById("sran").disabled = true;
+				$("#sran").prop("disabled", true);
 			if(fEnableObj.dith != distType)
-				document.getElementById("dith").disabled = true;
+				$("#dith").prop("disabled", true);
 			if(fEnableObj.dim != distType)
-				document.getElementById("dim").disabled = true;				
+				$("#dim").prop("disabled", true);				
 		}
 		
 		function updateInputs() {
-			document.getElementById("dim").value = 2;
-			document.getElementById("dim").disabled = false;
-			document.getElementById("per").disabled = false;
-			document.getElementById("buf").disabled = false;
-			document.getElementById("prob").disabled = false;
-			document.getElementById("dig").disabled = false;
-			document.getElementById("sran").disabled = false;
-			document.getElementById("dith").disabled = false;	
+			$("#dim").val(2);
+			$("#dim").prop("disabled", false);	
+			$("#per").prop("disabled", false);
+			$("#buf").prop("disabled", false);
+			$("#prob").prop("disabled", false);
+			$("#dig").prop("disabled", false);
+			$("#sran").prop("disabled", false);
+			$("#dith").prop("disabled", false);
 			disableInputs();
 		}
 		
 		function validInputs() {
 			var valid = true;
-			var val = document.getElementById("card").value
+			var val = $("#card").val();
 			if(val < 0 || val > 1000000000000) { // arbitrarily set max to 1 trillion
-				document.getElementById("cardInputError").innerHTML = "Valid val > 0 and < 1 trillion";
+				$("#cardInputError").html("Valid val > 0 and < 1 trillion");
 				valid = false;
 			}
-			val = document.getElementById("dim").value
-			if(document.getElementById("dist").value == "uniform") {
+			val = $("#dim").val();
+			if($("#dist").val() == "uniform") {
 				if(val < 1 || val > 1000000) { // arbitrarily set max to 1 million
-					document.getElementById("dimInputError").innerHTML = "Valid val > 1 and < 1 million";
+					$("#dimInputError").html("Valid val > 1 and < 1 million");
 					valid = false;
 				}
 			} else {
 				if(val != 2) { 
-					document.getElementById("dimInputError").innerHTML = "Valid val = 2";
+					$("#dimInputError").html("Valid val = 2");
 					valid = false;
 				}
 			}
-			val = document.getElementById("per").value
+			val = $("#per").val();
 			if(val < 0 || val > 1) {
-				document.getElementById("perInputError").innerHTML = "Valid val > 0 and < 1";
+				$("#perInputError").html("Valid val > 0 and < 1");
 				valid = false;
 			}
-			val = document.getElementById("buf").value
+			val = $("#buf").val();
 			if(val < 0 || val > 1) {
-				document.getElementById("bufInputError").innerHTML = "Valid val > 0 and < 1";
+				$("#bufInputError").html("Valid val > 0 and < 1");
 				valid = false;
 			}
-			val = document.getElementById("prob").value
+			val = $("#prob").val();
 			if(val < 0 || val > 1) {
-				document.getElementById("probInputError").innerHTML = "Valid val > 0 and < 1";
+				$("#probInputError").html("Valid val > 0 and < 1");
 				valid = false;
 			}
-			val = document.getElementById("dig").value
+			val = $("#dig").val();
 			if(val < 0 || val > 100000) {
-				document.getElementById("digInputError").innerHTML = "Valid val >= 0 and < 100,000";
+				$("#digInputError").html("Valid val >= 0 and < 100,000");
 				valid = false;
 			}				
-			val = document.getElementById("sran").value
+			val = $("#sran").val();
 			if(val < 0 || val > 1) {
-				document.getElementById("sranInputError").innerHTML = "Valid val > 0 and < 1";
+				$("#sranInputError").html("Valid val > 0 and < 1");
 				valid = false;
 			}					
-			val = document.getElementById("dith").value
+			val = $("#dith").val();
 			if(val < 0 || val > 1) {
-				document.getElementById("dithInputError").innerHTML = "Valid val > 0 and < 1";
+				$("#dithInputError").html("Valid val > 0 and < 1");
 				valid = false;
 			}
-			val = document.getElementById("seed").value
+			val = $("#seed").val();
 			if(val && (val < 0 || val > 100000000000000)) { // arbitrarily set max to 100 trillion
-				document.getElementById("seedInputError").innerHTML = "Valid val >= 0 and < 1 trillion";
+				$("#seedInputError").html("Valid val >= 0 and < 1 trillion");
 				valid = false;
 			}						
 			return valid;
 		}
 		
 		function resetInputError(inputId) {
-			document.getElementById(inputId).innerHTML = "";
+			$("#" + inputId).html("");
 		}
 		
 		function buildURL(forRender, forPlink) {
 			var paramVals = {
-				"card": document.getElementById("card").value,
-				"dist": document.getElementById("dist").value,
-				"dim": document.getElementById("dim").value,
-				"fmt": document.getElementById("fmt").value,
+				"card": $("#card").val(),
+				"dist": $("#dist").val(),
+				"dim": $("#dim").val(),
+				"fmt": $("#fmt").val(),
 				"geo": "point",
-				"seed": document.getElementById("seed").value
+				"seed": $("#seed").val()
 			};
 			
-			var inputVal = document.getElementById("per").value;
-			if(!document.getElementById("per").disabled && inputVal)
+			var inputVal = $("#per").val();
+			if(!$("#per").prop("disabled") && inputVal)
 				paramVals["per"] = inputVal;
-			inputVal = document.getElementById("buf").value;
-			if(!document.getElementById("buf").disabled && inputVal)
+			inputVal = $("#buf").val();
+			if(!$("#buf").prop("disabled") && inputVal)
 				paramVals["buf"] = inputVal;		
-			inputVal = document.getElementById("prob").value;
-			if(!document.getElementById("prob").disabled && inputVal)
+			inputVal = $("#prob").val();
+			if(!$("#prob").prop("disabled") && inputVal)
 				paramVals["prob"] = inputVal;		
-			inputVal = document.getElementById("dig").value;
-			if(!document.getElementById("dig").disabled && inputVal)
+			inputVal = $("#dig").val();
+			if(!$("#dig").prop("disabled") && inputVal)
 				paramVals["dig"] = inputVal;		
-			inputVal = document.getElementById("sran").value;
-			if(!document.getElementById("sran").disabled && inputVal)
+			inputVal = $("#sran").val();
+			if(!$("#sran").prop("disabled") && inputVal)
 				paramVals["sran"] = inputVal;		
-			inputVal = document.getElementById("dith").value;
-			if(!document.getElementById("dith").disabled && inputVal)
+			inputVal = $("#dith").val();
+			if(!$("#dith").prop("disabled") && inputVal)
 				paramVals["dith"] = inputVal;	
 
-			var inputVal1 = document.getElementById("a1").value;
-			var inputVal2 = document.getElementById("a2").value;
-			var inputVal3 = document.getElementById("a3").value;
-			var inputVal4 = document.getElementById("a4").value;
-			var inputVal5 = document.getElementById("a5").value;
-			var inputVal6 = document.getElementById("a6").value;
+			var inputVal1 = $("#a1").val();
+			var inputVal2 = $("#a2").val();
+			var inputVal3 = $("#a3").val();
+			var inputVal4 = $("#a4").val();
+			var inputVal5 = $("#a5").val();
+			var inputVal6 = $("#a6").val();
 			if(!inputVal1 || !inputVal2 || !inputVal3 || !inputVal4|| !inputVal5 || !inputVal6) {
-				document.getElementById("transformMessage").innerHTML = "Fill all parameters for transformation.";
+				$("#transformMessage").html("Fill all parameters for transformation.");
 			} else {
 				paramVals["a1"] = inputVal1;
 				paramVals["a2"] = inputVal2;
@@ -186,7 +187,7 @@
 				}
 				paramVals["fmt"] = "wkt";
 				paramVals["strm"] = "browser";
-				document.getElementById("renderMessage").innerHTML = message;
+				$("#renderMessage").html(message);
 			} else {
 				paramVals["strm"] = "cfile";
 			}
@@ -207,8 +208,9 @@
 		}
 		
 		function submitAndDownload() {
-			formURL = buildURL(false, false);
-			document.getElementById("downloadError").src = formURL;
+			var downloadURL = buildURL(false, false);
+			// downloadError element does double duty here to show error or pop-up file-save dialog
+			document.getElementById("downloadError").src = downloadURL;
 		}
 		
 		function submitAndRender(inputId) {
@@ -218,17 +220,17 @@
 				resetInputError(inputId);
 			if(!validInputs())
 				return;
-			formURL = buildURL(true, false);
-			permalink = buildURL(false, true);
-			document.getElementById("plink").value = permalink;
+			var dataURL = buildURL(true, false);
+			var permalink = buildURL(false, true);
+			$("#plink").val(permalink);
 
 			var XHR = new XMLHttpRequest();
 			XHR.addEventListener( 'load', function(event) {
 				if(XHR.status != 200) {
-					document.getElementById("renderMessage").innerHTML = `Error ${XHR.status}: ${XHR.statusText}`;
+					$("#renderMessage").html(`Error ${XHR.status}: ${XHR.statusText}`);
 					return;
 				}
-				document.getElementById("dataContent").innerHTML = "";
+				$("#dataContent").html("");
                 var vectorLayer = new ol.layer.Vector({
                     source: new ol.source.Vector({
                         features: (new ol.format.WKT()).readFeatures(XHR.responseText)
@@ -247,9 +249,9 @@
                 });
 			});
 			XHR.addEventListener( 'error', function(event) {
-				document.getElementById("renderMessage").innerHTML = `Error ${XHR.status}: ${XHR.statusText}`;
+				$("#renderMessage").html(`Error ${XHR.status}: ${XHR.statusText}`);
 			});
-			XHR.open( 'GET', formURL);
+			XHR.open( 'GET', dataURL);
 			XHR.send(null);
 		}
 		
@@ -258,39 +260,39 @@
 			var paramString = new URLSearchParams(curURL.searchParams);
 			if(paramString != "") {
 				if(paramString.has("dist"))
-					document.getElementById('dist').value = paramString.get("dist");
+					$('#dist').val(paramString.get("dist"));
 				if(paramString.has("card"))
-					document.getElementById('card').value = paramString.get("card");
+					$('#card').val(paramString.get("card"));
 				if(paramString.has("dim"))
-					document.getElementById('dim').value = paramString.get("dim");
+					$('#dim').val(paramString.get("dim"));
 				if(paramString.has("fmt"))
-					document.getElementById('fmt').value = paramString.get("fmt");
+					$('#fmt').val(paramString.get("fmt"));
 				if(paramString.has("per"))
-					document.getElementById('per').value = paramString.get("per");
+					$('#per').val(paramString.get("per"));
 				if(paramString.has("buf"))
-					document.getElementById('buf').value = paramString.get("buf");
+					$('#buf').val(paramString.get("buf"));
 				if(paramString.has("prob"))
-					document.getElementById('prob').value = paramString.get("prob");
+					$('#prob').val(paramString.get("prob"));
 				if(paramString.has("dig"))
-					document.getElementById('dig').value = paramString.get("dig");
+					$('#dig').val(paramString.get("dig"));
 				if(paramString.has("sran"))
-					document.getElementById('sran').value = paramString.get("sran");
+					$('#sran').val(paramString.get("sran"));
 				if(paramString.has("dith"))
-					document.getElementById('dith').value = paramString.get("dith");
+					$('#dith').val(paramString.get("dith"));
 				if(paramString.has("seed"))
-					document.getElementById('seed').value = paramString.get("seed");
+					$('#seed').val(paramString.get("seed"));
 				if(paramString.has("a1"))
-					document.getElementById('a1').value = paramString.get("a1");	
+					$('#a1').val(paramString.get("a1"));
 				if(paramString.has("a2"))
-					document.getElementById('a2').value = paramString.get("a2");
+					$('#a2').val(paramString.get("a2"));
 				if(paramString.has("a3"))
-					document.getElementById('a3').value = paramString.get("a3");
+					$('#a3').val(paramString.get("a3"));
 				if(paramString.has("a4"))
-					document.getElementById('a4').value = paramString.get("a4");
+					$('#a4').val(paramString.get("a4"));
 				if(paramString.has("a5"))
-					document.getElementById('a5').value = paramString.get("a5");
+					$('#a5').val(paramString.get("a5"));
 				if(paramString.has("a6"))
-					document.getElementById('a6').value = paramString.get("a6");									
+					$('#a6').val(paramString.get("a6"));
 			}
 			submitAndRender('dist');
 		}
