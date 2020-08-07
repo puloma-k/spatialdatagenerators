@@ -135,51 +135,14 @@
 		}
 		
 		function buildURL(forRender, forPlink) {
-			var paramVals = {
-				"card": $("#card").val(),
-				"dist": $("#dist").val(),
-				"dim": $("#dim").val(),
-				"fmt": $("#fmt").val(),
-				"geo": "point",
-				"seed": $("#seed").val()
-			};
-			
-			var inputVal = $("#per").val();
-			if(!$("#per").prop("disabled") && inputVal)
-				paramVals["per"] = inputVal;
-			inputVal = $("#buf").val();
-			if(!$("#buf").prop("disabled") && inputVal)
-				paramVals["buf"] = inputVal;		
-			inputVal = $("#prob").val();
-			if(!$("#prob").prop("disabled") && inputVal)
-				paramVals["prob"] = inputVal;		
-			inputVal = $("#dig").val();
-			if(!$("#dig").prop("disabled") && inputVal)
-				paramVals["dig"] = inputVal;		
-			inputVal = $("#sran").val();
-			if(!$("#sran").prop("disabled") && inputVal)
-				paramVals["sran"] = inputVal;		
-			inputVal = $("#dith").val();
-			if(!$("#dith").prop("disabled") && inputVal)
-				paramVals["dith"] = inputVal;	
-
-			var inputVal1 = $("#a1").val();
-			var inputVal2 = $("#a2").val();
-			var inputVal3 = $("#a3").val();
-			var inputVal4 = $("#a4").val();
-			var inputVal5 = $("#a5").val();
-			var inputVal6 = $("#a6").val();
-			if(!inputVal1 || !inputVal2 || !inputVal3 || !inputVal4|| !inputVal5 || !inputVal6) {
-				$("#transformMessage").html("Fill all parameters for transformation.");
-			} else {
-				paramVals["a1"] = inputVal1;
-				paramVals["a2"] = inputVal2;
-				paramVals["a3"] = inputVal3;
-				paramVals["a4"] = inputVal4;
-				paramVals["a5"] = inputVal5;
-				paramVals["a6"] = inputVal6;
+			var paramVals = formToJSON();
+			if (paramVals.a1 || paramVals.a2 || paramVals.a3 || paramVals.a4 || paramVals.a5 || paramVals.a6) {
+				if (!paramVals.a1 || !paramVals.a2 || !paramVals.a3 || !paramVals.a4 || !paramVals.a5 || !paramVals.a6) {
+					$("#transformMessage").html("Fill all values for transformation");
+				}
 			}
-				
+			paramVals["geo"] = "point";
+
 			if(forRender) {
 				var message = "";
 				if(paramVals["card"] > 1000) {
@@ -216,17 +179,21 @@
 		
 		function submitAndDownload() {
 			var downloadURL = buildURL(false, false);
-			// downloadError element does double duty here to show error or pop-up file-save dialog
-			document.getElementById("downloadError").src = downloadURL;
+			// downloadOrError element does double duty here to show error or pop-up file-save dialog
+			document.getElementById("downloadOrError").src = downloadURL;
 		}
 		
 		function addLayerSubmitAndRender() {
 			curLayerIdx++;
 			layerList[curLayerIdx] = {
-				name: "Layer " + curLayerIdx + 1,
+				name: "Layer " + (curLayerIdx + 1),
 				enabled: true,
-				layerData: null
+				layerData: null,
+				layerParams: formToJSON()
 			}
+			var listItemName = "lla" + curLayerIdx;
+			$("#layerList").append('<a id="' +  listItemName + '" href="#" class="list-group-item list-group-item-action">' + layerList[curLayerIdx].name + '</a>');
+			$("#" + listItemName).click(function (e) {e.preventDefault(); return false;})
 			submitAndRender();
 		}
 		
@@ -321,11 +288,34 @@
 			layerList = [{
 				name: "Layer 1",
 				enabled: true,
-				layerData: null
+				layerData: null,
+				layerParams: formToJSON()
 			}];
 			curLayerIdx = 0;
+			var listItemName = "lla" + curLayerIdx;
+			$("#layerList").append('<a id="' +  listItemName + '" href="#" class="list-group-item list-group-item-action">' + layerList[curLayerIdx].name + '</a>');
+			$("#" + listItemName).click(function (e) {e.preventDefault(); return false;})
+
 			updateInputs();
 			submitAndRender();
+		}
+
+		function formToJSON() {
+			var paramVals = {};
+			var varNames = ["card", "dist", "dim", "fmt", "seed", "per", "buf", "prob", "dig", "sran", "dith", "a1", "a2", "a3", "a4", "a5", "a6"];
+			varNames.forEach(function(item, index) {
+				var inputVal = $("#" + item).val();
+				if(!$("#" + item).prop("disabled") && inputVal)
+					paramVals[item] = inputVal;
+			});
+			return paramVals;
+		}
+
+		function JSONToForm(paramVals) {
+			for(var p in paramVals) {
+				if(paramVals.hasOwnProperty(p))
+					$("#" + p).val(paramVals.p);
+			}
 		}
 		
 	</script>
@@ -335,212 +325,226 @@
 <body style="background-color:#FEFEFF;" onload="setupSubmitAndRender()">
 	<h1 class="pagehead">Spatial Data Generator</h1>
 	
-	<form id="datareq" action="javascript:void(0);" onSubmit="submitAndDownload()">
-		<table class="bigtab" border="0" cellspacing="10" width="98%">
-			<tbody>
-				<tr>
-					<td class="optionlabel1">
-						Distribution:
-					</td>
-					<td class="optiondata1">
-						<select id="dist" name="dist" onchange="updateInputs()">
-							<option value="uniform">Uniform</option>
-							<option value="diagonal">Diagonal</option>
-							<option value="gaussian">Gaussian</option>
-							<option value="sierpinski">Sierpinski</option>
-							<option value="bit">Bit</option>
-							<option value="parcel">Parcel</option>
-						</select>
-					</td>
-					<td class="optionlabel2">
-						Cardinality:	
-					</td>
-					<td class="optiondata2">
-						<input type="number" value="100" id="card" name="card"></input>
-						<div class="inputError" id="cardInputError"></div>
-					</td>
-				</tr>
-				
-				<tr>
-					<td class="optionlabel1">
-						Dimension:
-					</td>
-					
-					<td class="optiondata1">
-						<input type="number" value="2" id="dim" name="dim"></input>
-						<div class="inputError" id="dimInputError"></div>
-					</td>					
-					
-					
-					<td class="optionlabel2">
-						Format:
-					</td>
-					<td class="optiondata2">
-						<select id="fmt" name="fmt">
-							<option value="wkt">wkt</option>
-							<option value="csv">csv</option>
-							<option value="gjson">geoJSON</option>
-						</select>
-					</td>
-				</tr>
-				
-				<tr>
-					<td class="optionlabel1">
-						Percentage:
-					</td>
-					<td class="optiondata1">
-						<input type="text" value="0.5" id="per" name="per"></input>
-						<div class="inputError" id="perInputError"></div>
-					</td>
-					<td class="optionlabel2">
-						Buffer:
-					</td>
-					<td class="optiondata2">
-						<input type="text" value="0.5" id="buf" name="buf"></input>
-						<div class="inputError" id="bufInputError"></div>
-					</td>
-				</tr>
-				
-				<tr>
-					<td class="optionlabel1">
-						Probability:
-					</td>
-					<td class="optiondata1">
-						<input type="text" value="0.5" id="prob" name="prob"></input>
-						<div class="inputError" id="probInputError"></div>
-					</td>
-					<td class="optionlabel2">
-						Digits:
-					</td>
-					<td class="optiondata2">
-						<input type="number" value="2" id="dig" name="dig"></input>
-						<div class="inputError" id="digInputError"></div>
-					</td>
-				</tr>
-				
-				<tr>
-					<td class="optionlabel1">
-						Split range:
-					</td>
-					<td class="optiondata1">
-						<input type="text" value="0.5" id="sran" name="sran"></input>
-						<div class="inputError" id="sranInputError"></div>
-					</td>
-					<td class="optionlabel2">
-						Dither:
-					</td>
-					<td class="optiondata2">
-						<input type="text" value="0.5" id="dith" name="dith"></input>
-						<div class="inputError" id="dithInputError"></div>
-					</td>
-				</tr>
-				
-				<tr>
-					<td class="optionlabel1">
-						Seed value:
-					</td>
-					<td class="optiondata1">
-						<input type="number" id="seed" name="seed"></input>
-						<div class="inputError" id="seedInputError"></div>
-					</td>
-					
-					<td class="optionlabel2">
-						Permalink:
-					</td>
-					<td class="optiondata2">
-						<input type="text" id="plink" name="plink" value="" readonly></input>
-					</td>
-				</tr>
-				
-				<tr>
-					<td colspan="4" align="center">
-						<table>
-							<tr>
-								<td>
-									<button type="submit">Download</button>
-								</td>
-								<td>
-									<button type="button" onclick="submitAndRender()">Refresh Layer</button>
-								</td>
-								<td>
-									<button type="button" onclick="addLayerSubmitAndRender()">Add Layer</button>
-								</td>
-							</tr>
+	<table class="bigtab">
+		<tbody>
+			<tr>
+				<td width="40%">
+					<form id="datareq" action="javascript:void(0);" onSubmit="submitAndDownload()">
+						<table  border="0" cellspacing="10">
+							<tbody>
+								<tr>
+									<td class="optionlabel1">
+										Distribution:
+									</td>
+									<td class="optiondata1">
+										<select id="dist" name="dist" onchange="updateInputs()">
+											<option value="uniform">Uniform</option>
+											<option value="diagonal">Diagonal</option>
+											<option value="gaussian">Gaussian</option>
+											<option value="sierpinski">Sierpinski</option>
+											<option value="bit">Bit</option>
+											<option value="parcel">Parcel</option>
+										</select>
+									</td>
+									<td class="optionlabel2">
+										Cardinality:	
+									</td>
+									<td class="optiondata2">
+										<input type="number" value="100" id="card" name="card"></input>
+										<div class="inputError" id="cardInputError"></div>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										Dimension:
+									</td>
+									
+									<td class="optiondata1">
+										<input type="number" value="2" id="dim" name="dim"></input>
+										<div class="inputError" id="dimInputError"></div>
+									</td>					
+									
+									
+									<td class="optionlabel2">
+										Format:
+									</td>
+									<td class="optiondata2">
+										<select id="fmt" name="fmt">
+											<option value="wkt">wkt</option>
+											<option value="csv">csv</option>
+											<option value="gjson">geoJSON</option>
+										</select>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										Percentage:
+									</td>
+									<td class="optiondata1">
+										<input type="text" value="0.5" id="per" name="per"></input>
+										<div class="inputError" id="perInputError"></div>
+									</td>
+									<td class="optionlabel2">
+										Buffer:
+									</td>
+									<td class="optiondata2">
+										<input type="text" value="0.5" id="buf" name="buf"></input>
+										<div class="inputError" id="bufInputError"></div>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										Probability:
+									</td>
+									<td class="optiondata1">
+										<input type="text" value="0.5" id="prob" name="prob"></input>
+										<div class="inputError" id="probInputError"></div>
+									</td>
+									<td class="optionlabel2">
+										Digits:
+									</td>
+									<td class="optiondata2">
+										<input type="number" value="2" id="dig" name="dig"></input>
+										<div class="inputError" id="digInputError"></div>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										Split range:
+									</td>
+									<td class="optiondata1">
+										<input type="text" value="0.5" id="sran" name="sran"></input>
+										<div class="inputError" id="sranInputError"></div>
+									</td>
+									<td class="optionlabel2">
+										Dither:
+									</td>
+									<td class="optiondata2">
+										<input type="text" value="0.5" id="dith" name="dith"></input>
+										<div class="inputError" id="dithInputError"></div>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										Seed value:
+									</td>
+									<td class="optiondata1">
+										<input type="number" id="seed" name="seed"></input>
+										<div class="inputError" id="seedInputError"></div>
+									</td>
+									
+									<td class="optionlabel2">
+										Permalink:
+									</td>
+									<td class="optiondata2">
+										<input type="text" id="plink" name="plink" value="" readonly></input>
+									</td>
+								</tr>
+								
+								
+								<tr>
+									<td colspan="4" align="center">
+										Affine transformation parameters
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										a1:
+									</td>
+									<td class="optiondata1">
+										<input type="text" id="a1" name="a1" value="0"></input>
+									</td>
+									<td class="optionlabel2">
+										a2:
+									</td>
+									<td class="optiondata2">
+										<input type="text" id="a2" name="a2" value="0"></input>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										a3:
+									</td>
+									<td class="optiondata1">
+										<input type="text" id="a3" name="a3" value="0"></input>
+									</td>
+									<td class="optionlabel2">
+										a4:
+									</td>
+									<td class="optiondata2">
+										<input type="text" id="a4" name="a4" value="0"></input>
+									</td>
+								</tr>
+								
+								<tr>
+									<td class="optionlabel1">
+										a5:
+									</td>
+									<td class="optiondata1">
+										<input type="text" id="a5" name="a5" value="0"></input>
+									</td>
+									<td class="optionlabel2">
+										a6:
+									</td>
+									<td class="optiondata2">
+										<input type="text" id="a6" name="a6" value="0"></input>
+									</td>
+								</tr>
+								
+								<tr>
+									<td>
+										<div id="transformMessage" name="transformMessage" align="center"> </div>
+									</td>
+								</tr>
+								
+								
+								<tr>
+									<td colspan="4" align="center">
+										<table>
+											<tr>
+												<td>
+													<button type="submit">Download</button>
+												</td>
+												<td>
+													<button type="button" onclick="submitAndRender()">Refresh Layer</button>
+												</td>
+												<td>
+													<button type="button" onclick="addLayerSubmitAndRender()">Add Layer</button>
+												</td>
+											</tr>
+										</table>
+									</td>
+								</tr>
+							</tbody>
 						</table>
-					</td>
-				</tr>
-				
-			</tbody>
-		</table>
-
-		<div id="downloadErrorDiv" name="downloadErrorDiv"> <iframe id="downloadError" name="downloadError" class="hide"> </iframe> </div>
-		<div id="renderMessage" name="renderMessage"> </div>
-		
-		<div id="dataContent" name="dataContent" align="left">
-			Data should be rendered here.
-			<iframe id="resultData" name="resultData" class="hide"></iframe>
-		</div>
-
-		<div id="transformMessage" name="transformMessage" align="center"> </div>
-		<table class="bigtab" border="0" cellspacing="10" width="98%">
-			<tbody>
-				<tr>
-					<td class="optionlabel1">
-						a1:
-					</td>
-					<td class="optiondata1">
-						<input type="text" id="a1" name="a1" value="0"></input>
-					</td>
-					<td class="optionlabel2">
-						a2:
-					</td>
-					<td class="optiondata2">
-						<input type="text" id="a2" name="a2" value="0"></input>
-					</td>
-				</tr>
-				<tr>
-					<td class="optionlabel1">
-						a3:
-					</td>
-					<td class="optiondata1">
-						<input type="text" id="a3" name="a3" value="0"></input>
-					</td>
-					<td class="optionlabel2">
-						a4:
-					</td>
-					<td class="optiondata2">
-						<input type="text" id="a4" name="a4" value="0"></input>
-					</td>
-				</tr>
-				<tr>
-					<td class="optionlabel1">
-						a5:
-					</td>
-					<td class="optiondata1">
-						<input type="text" id="a5" name="a5" value="0"></input>
-					</td>
-					<td class="optionlabel2">
-						a6:
-					</td>
-					<td class="optiondata2">
-						<input type="text" id="a6" name="a6" value="0"></input>
-					</td>
-				</tr>
-			</tbody>
-		</table>
-
-	</form>
-	
-	<!-- <div id="downloadErrorDiv" name="downloadErrorDiv"> <iframe id="downloadError" name="downloadError" class="hide"> </iframe> </div>
-	<div id="renderMessage" name="renderMessage"> </div>
-	
-	<div id="dataContent" name="dataContent" align="left">
-		Data should be rendered here.
-		<iframe id="resultData" name="resultData" class="hide"></iframe>
-	</div> -->
-
-
-	
+					</form>
+				</td>
+				<td width="50%" style="border: 2px solid black">
+					<div id="downloadErrorDiv" name="downloadErrorDiv"> 
+						<iframe id="downloadOrError" name="downloadOrError" class="hide"> </iframe> 
+					</div>
+					<div id="renderMessage" name="renderMessage"> </div>
+						
+					<div id="dataContent" name="dataContent" align="left">
+						Data should be rendered here.
+						<iframe id="resultData" name="resultData" class="hide"></iframe>
+					</div>
+				</td>
+				<td width="10%" style="vertical-align:top">
+					Layers<br/>
+					<div id="layerList" class="list-group">
+					</div>
+				</td>
+			</tr>
+		</tbody>
+	</table>
 	<h4 class="pagehead">Developed at UC Riverside Big Data Lab</h4>
 	<h5 class="pagehead">By Puloma Katiyar and Dr. Ahmed Eldawy</h5>
 	
