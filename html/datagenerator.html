@@ -4,8 +4,10 @@
 	<meta name="description" content="Spatial data generator developed at UC Riverside by Puloma Katiyar under guidance of Dr. Ahmed Eldawy">
 	<meta name="keywords" content="Spatial data, data generator, UCR, UC Riverside, UCR big data lab, test data, Puloma Katiyar, Ahmed Eldawy, computer science">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
 	<link rel="shortcut icon" href="sd.ico">
 	<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
+	<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script> -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css">
 	<style type="text/css">
 		.headcol { vertical-align: top; text-align: right; }
@@ -24,7 +26,6 @@
 
 	<title>Spatial Data Generator</title>
 	
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 	<script>
 		var fEnableObj = {
 			"perc": "diagonal",
@@ -35,7 +36,7 @@
 			"dith": "parcel",
 			"dim": "uniform"
 		}
-		
+	
 		function disableInputs() {
 			var distType = $("#dist").val();
 			if(fEnableObj.perc != distType)
@@ -72,59 +73,65 @@
 			if(val < 0 || val > 1000000000000) { // arbitrarily set max to 1 trillion
 				$("#cardInputError").html("Valid val > 0 and < 1 trillion");
 				valid = false;
-			}
+			} else
+				$("#cardInputError").html("");
 			val = $("#dim").val();
 			if($("#dist").val() == "uniform") {
 				if(val < 1 || val > 1000000) { // arbitrarily set max to 1 million
 					$("#dimInputError").html("Valid val > 1 and < 1 million");
 					valid = false;
-				}
+				} else
+					$("#dimInputError").html("");
 			} else {
 				if(val != 2) { 
 					$("#dimInputError").html("Valid val = 2");
 					valid = false;
-				}
+				} else
+					$("#dimInputError").html("");
 			}
 			val = $("#per").val();
 			if(val < 0 || val > 1) {
 				$("#perInputError").html("Valid val > 0 and < 1");
 				valid = false;
-			}
+			} else
+				$("#perInputError").html("");
 			val = $("#buf").val();
 			if(val < 0 || val > 1) {
 				$("#bufInputError").html("Valid val > 0 and < 1");
 				valid = false;
-			}
+			} else
+				$("#bufInputError").html("");
 			val = $("#prob").val();
 			if(val < 0 || val > 1) {
 				$("#probInputError").html("Valid val > 0 and < 1");
 				valid = false;
-			}
+			} else
+				$("#probInputError").html("");
 			val = $("#dig").val();
 			if(val < 0 || val > 100000) {
 				$("#digInputError").html("Valid val >= 0 and < 100,000");
 				valid = false;
-			}				
+			} else
+				$("#digInputError").html("");				
 			val = $("#sran").val();
 			if(val < 0 || val > 1) {
 				$("#sranInputError").html("Valid val > 0 and < 1");
 				valid = false;
-			}					
+			} else
+				$("#sranInputError").html("");				
 			val = $("#dith").val();
 			if(val < 0 || val > 1) {
 				$("#dithInputError").html("Valid val > 0 and < 1");
 				valid = false;
-			}
+			} else 
+				$("#dithInputError").html("");
 			val = $("#seed").val();
 			if(val && (val < 0 || val > 100000000000000)) { // arbitrarily set max to 100 trillion
 				$("#seedInputError").html("Valid val >= 0 and < 1 trillion");
 				valid = false;
-			}						
+			} else
+				$("#seedInputError").html("");					
 			return valid;
-		}
-		
-		function resetInputError(inputId) {
-			$("#" + inputId).html("");
 		}
 		
 		function buildURL(forRender, forPlink) {
@@ -213,11 +220,17 @@
 			document.getElementById("downloadError").src = downloadURL;
 		}
 		
-		function submitAndRender(inputId) {
-			if(inputId == "dist")
-				updateInputs();
-			else
-				resetInputError(inputId);
+		function addLayerSubmitAndRender() {
+			curLayerIdx++;
+			layerList[curLayerIdx] = {
+				name: "Layer " + curLayerIdx + 1,
+				enabled: true,
+				layerData: null
+			}
+			submitAndRender();
+		}
+		
+		function submitAndRender() {
 			if(!validInputs())
 				return;
 			var dataURL = buildURL(true, false);
@@ -237,6 +250,8 @@
                     })
                 });
                 
+                layerList[curLayerIdx].layerData = vectorLayer;
+                
                 var view = new ol.View({
                     center: [0.5, 0.5],
                     zoom: 25
@@ -244,7 +259,7 @@
                 
                 var map = new ol.Map({
                     target: 'dataContent',
-                    layers: [vectorLayer],
+                    layers: getEnabledLayersData(),
                     view: view
                 });
 			});
@@ -253,6 +268,15 @@
 			});
 			XHR.open( 'GET', dataURL);
 			XHR.send(null);
+		}
+		
+		function getEnabledLayersData() {
+			var enabledLayers = [];
+			layerList.forEach(function(item, index) {
+				if(item.enabled)
+					enabledLayers.push(item.layerData);
+			});
+			return enabledLayers;
 		}
 		
 		function setupSubmitAndRender() {
@@ -294,7 +318,14 @@
 				if(paramString.has("a6"))
 					$('#a6').val(paramString.get("a6"));
 			}
-			submitAndRender('dist');
+			layerList = [{
+				name: "Layer 1",
+				enabled: true,
+				layerData: null
+			}];
+			curLayerIdx = 0;
+			updateInputs();
+			submitAndRender();
 		}
 		
 	</script>
@@ -312,7 +343,7 @@
 						Distribution:
 					</td>
 					<td class="optiondata1">
-						<select id="dist" name="dist" onchange="submitAndRender('dist')">
+						<select id="dist" name="dist" onchange="updateInputs()">
 							<option value="uniform">Uniform</option>
 							<option value="diagonal">Diagonal</option>
 							<option value="gaussian">Gaussian</option>
@@ -325,7 +356,7 @@
 						Cardinality:	
 					</td>
 					<td class="optiondata2">
-						<input type="number" value="100" id="card" name="card" onchange="submitAndRender('cardInputError')"></input>
+						<input type="number" value="100" id="card" name="card"></input>
 						<div class="inputError" id="cardInputError"></div>
 					</td>
 				</tr>
@@ -336,7 +367,7 @@
 					</td>
 					
 					<td class="optiondata1">
-						<input type="number" value="2" id="dim" name="dim" onchange="submitAndRender('dimInputError')"></input>
+						<input type="number" value="2" id="dim" name="dim"></input>
 						<div class="inputError" id="dimInputError"></div>
 					</td>					
 					
@@ -358,14 +389,14 @@
 						Percentage:
 					</td>
 					<td class="optiondata1">
-						<input type="text" value="0.5" id="per" name="per" onchange="submitAndRender('perInputError')"></input>
+						<input type="text" value="0.5" id="per" name="per"></input>
 						<div class="inputError" id="perInputError"></div>
 					</td>
 					<td class="optionlabel2">
 						Buffer:
 					</td>
 					<td class="optiondata2">
-						<input type="text" value="0.5" id="buf" name="buf" onchange="submitAndRender('bufInputError')"></input>
+						<input type="text" value="0.5" id="buf" name="buf"></input>
 						<div class="inputError" id="bufInputError"></div>
 					</td>
 				</tr>
@@ -375,14 +406,14 @@
 						Probability:
 					</td>
 					<td class="optiondata1">
-						<input type="text" value="0.5" id="prob" name="prob" onchange="submitAndRender('probInputError')"></input>
+						<input type="text" value="0.5" id="prob" name="prob"></input>
 						<div class="inputError" id="probInputError"></div>
 					</td>
 					<td class="optionlabel2">
 						Digits:
 					</td>
 					<td class="optiondata2">
-						<input type="number" value="2" id="dig" name="dig" onchange="submitAndRender('digInputError')"></input>
+						<input type="number" value="2" id="dig" name="dig"></input>
 						<div class="inputError" id="digInputError"></div>
 					</td>
 				</tr>
@@ -392,14 +423,14 @@
 						Split range:
 					</td>
 					<td class="optiondata1">
-						<input type="text" value="0.5" id="sran" name="sran" onchange="submitAndRender('sranInputError')"></input>
+						<input type="text" value="0.5" id="sran" name="sran"></input>
 						<div class="inputError" id="sranInputError"></div>
 					</td>
 					<td class="optionlabel2">
 						Dither:
 					</td>
 					<td class="optiondata2">
-						<input type="text" value="0.5" id="dith" name="dith" onchange="submitAndRender('dithInputError')"></input>
+						<input type="text" value="0.5" id="dith" name="dith"></input>
 						<div class="inputError" id="dithInputError"></div>
 					</td>
 				</tr>
@@ -409,7 +440,7 @@
 						Seed value:
 					</td>
 					<td class="optiondata1">
-						<input type="number" id="seed" name="seed" onchange="submitAndRender('seedInputError')"></input>
+						<input type="number" id="seed" name="seed"></input>
 						<div class="inputError" id="seedInputError"></div>
 					</td>
 					
@@ -423,7 +454,19 @@
 				
 				<tr>
 					<td colspan="4" align="center">
-						<input type="submit" value="Download"></input>
+						<table>
+							<tr>
+								<td>
+									<button type="submit">Download</button>
+								</td>
+								<td>
+									<button type="button" onclick="submitAndRender()">Refresh Layer</button>
+								</td>
+								<td>
+									<button type="button" onclick="addLayerSubmitAndRender()">Add Layer</button>
+								</td>
+							</tr>
+						</table>
 					</td>
 				</tr>
 				
@@ -500,4 +543,9 @@
 	
 	<h4 class="pagehead">Developed at UC Riverside Big Data Lab</h4>
 	<h5 class="pagehead">By Puloma Katiyar and Dr. Ahmed Eldawy</h5>
+	
+	<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+</body>	
 </html>
