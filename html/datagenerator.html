@@ -1,13 +1,15 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="description" content="Spatial data generator developed at UC Riverside by Puloma Katiyar under guidance of Dr. Ahmed Eldawy">
 	<meta name="keywords" content="Spatial data, data generator, UCR, UC Riverside, UCR big data lab, test data, Puloma Katiyar, Ahmed Eldawy, computer science">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
 	<link rel="shortcut icon" href="sd.ico">
 	<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
-	<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script> -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css">
 	<style type="text/css">
 		.headcol { vertical-align: top; text-align: right; }
@@ -56,7 +58,8 @@
 		}
 		
 		function updateInputs() {
-			$("#dim").val(2);
+			if($("#dist").val() != "uniform")
+				$("#dim").val(2);
 			$("#dim").prop("disabled", false);	
 			$("#per").prop("disabled", false);
 			$("#buf").prop("disabled", false);
@@ -183,23 +186,43 @@
 			document.getElementById("downloadOrError").src = downloadURL;
 		}
 		
-		function addLayerSubmitAndRender() {
-			curLayerIdx++;
+		function addLayer() {
+			layerList.push({});
+			$("#" + layerList[curLayerIdx].listItemId).removeClass("active");
+			curLayerIdx = layerList.length - 1;
+			var listItemId = "lla" + curLayerIdx;
 			layerList[curLayerIdx] = {
+				listItemId: listItemId,
 				name: "Layer " + (curLayerIdx + 1),
 				enabled: true,
 				layerData: null,
 				layerParams: formToJSON()
 			}
-			var listItemName = "lla" + curLayerIdx;
-			$("#layerList").append('<a id="' +  listItemName + '" href="#" class="list-group-item list-group-item-action">' + layerList[curLayerIdx].name + '</a>');
-			$("#" + listItemName).click(function (e) {e.preventDefault(); return false;})
-			submitAndRender();
+			var listHTML = '<a id="' + listItemId 
+                + '" class="list-group-item list-group-item-action active">'
+                + '<label>'
+				+ '<input class="" type="checkbox" id="' + listItemId + 'check"  />'
+                + layerList[curLayerIdx].name + '</label>'
+                + '</a>';
+			$("#layerList").append(listHTML);
+			$("#" + listItemId).click(function (e) {restoreLayer(listItemId);});
+		}
+
+		function restoreLayer(listItemId) {
+			$("#" + layerList[curLayerIdx].listItemId).removeClass("active");
+			$("#" + listItemId).addClass("active");
+			var layer = null;
+			layerList.forEach(function (item, index) {
+				if(item["listItemId"] == listItemId) {
+					layer = item;
+					curLayerIdx = index;
+				}
+			});
+			JSONToForm(layer.layerParams);
+			updateInputs();
 		}
 		
 		function submitAndRender() {
-			if(!validInputs())
-				return;
 			var dataURL = buildURL(true, false);
 			var permalink = buildURL(false, true);
 			$("#plink").val(permalink);
@@ -247,6 +270,8 @@
 		}
 		
 		function setupSubmitAndRender() {
+			layerList = [];
+			curLayerIdx = 0;
 			var curURL = new URL(window.location);
 			var paramString = new URLSearchParams(curURL.searchParams);
 			if(paramString != "") {
@@ -285,36 +310,28 @@
 				if(paramString.has("a6"))
 					$('#a6').val(paramString.get("a6"));
 			}
-			layerList = [{
-				name: "Layer 1",
-				enabled: true,
-				layerData: null,
-				layerParams: formToJSON()
-			}];
-			curLayerIdx = 0;
-			var listItemName = "lla" + curLayerIdx;
-			$("#layerList").append('<a id="' +  listItemName + '" href="#" class="list-group-item list-group-item-action">' + layerList[curLayerIdx].name + '</a>');
-			$("#" + listItemName).click(function (e) {e.preventDefault(); return false;})
-
+			addLayer();
 			updateInputs();
-			submitAndRender();
+			if(validInputs())
+				submitAndRender();
 		}
 
 		function formToJSON() {
 			var paramVals = {};
-			var varNames = ["card", "dist", "dim", "fmt", "seed", "per", "buf", "prob", "dig", "sran", "dith", "a1", "a2", "a3", "a4", "a5", "a6"];
+			var varNames = ["dist", "dim", "card", "fmt", "seed", "per", "buf", "prob", "dig", "sran", "dith", "a1", "a2", "a3", "a4", "a5", "a6"];
 			varNames.forEach(function(item, index) {
 				var inputVal = $("#" + item).val();
-				if(!$("#" + item).prop("disabled") && inputVal)
+				if(inputVal)
 					paramVals[item] = inputVal;
 			});
 			return paramVals;
 		}
 
 		function JSONToForm(paramVals) {
-			for(var p in paramVals) {
-				if(paramVals.hasOwnProperty(p))
-					$("#" + p).val(paramVals.p);
+			for(var key in paramVals) {
+				if(paramVals.hasOwnProperty(key)) {
+					$("#" + key).val(paramVals[key]);
+				}
 			}
 		}
 		
@@ -513,10 +530,10 @@
 													<button type="submit">Download</button>
 												</td>
 												<td>
-													<button type="button" onclick="submitAndRender()">Refresh Layer</button>
+													<button type="button" onclick="if(validInputs()) submitAndRender();">Refresh Layer</button>
 												</td>
 												<td>
-													<button type="button" onclick="addLayerSubmitAndRender()">Add Layer</button>
+													<button type="button" onclick="addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
 												</td>
 											</tr>
 										</table>
@@ -526,7 +543,7 @@
 						</table>
 					</form>
 				</td>
-				<td width="50%" style="border: 2px solid black">
+				<td width="40%" style="border: 2px solid black">
 					<div id="downloadErrorDiv" name="downloadErrorDiv"> 
 						<iframe id="downloadOrError" name="downloadOrError" class="hide"> </iframe> 
 					</div>
@@ -537,11 +554,10 @@
 						<iframe id="resultData" name="resultData" class="hide"></iframe>
 					</div>
 				</td>
-				<td width="10%" style="vertical-align:top">
-					Layers<br/>
+				<td width="20%" style="vertical-align:top">
 					<div id="layerList" class="list-group">
 					</div>
-				</td>
+			</td>
 			</tr>
 		</tbody>
 	</table>
