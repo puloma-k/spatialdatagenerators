@@ -185,8 +185,15 @@
 			// downloadOrError element does double duty here to show error or pop-up file-save dialog
 			document.getElementById("downloadOrError").src = downloadURL;
 		}
+
+		function disableActionButtons(propBool) {
+			$("#downloadButton").prop("disabled", propBool);
+			$("#refreshButton").prop("disabled", propBool);
+			$("#addLayerButton").prop("disabled", propBool);
+		}
 		
 		function addLayer() {
+			disableActionButtons(true);
 			layerList.push({});
 			$("#" + layerList[curLayerIdx].listItemId).removeClass("active");
 			curLayerIdx = layerList.length - 1;
@@ -200,13 +207,16 @@
 			}
 			var listHTML = '<a id="' + listItemId 
                 + '" class="list-group-item list-group-item-action active">'
+				+ '<div class="d-flex w-100 justify-content-between">'
                 + '<label>'
 				+ '<input class="" type="checkbox" id="' + listItemId + 'check" checked/>'
                 + layerList[curLayerIdx].name + '</label>'
-                + '</a>';
+				+ '<button type="button" id="' + listItemId + 'button">X</button>'
+                + '</div></a>';
 			$("#layerList").append(listHTML);
 			$("#" + listItemId).click(function (e) {restoreLayer(listItemId);});
 			$("#" + listItemId + "check").click(function (e) {toggleLayerVisibility(listItemId);});
+			$("#" + listItemId + "button").click(function (e) {deleteLayer(listItemId);});
 		}
 
 		function restoreLayer(listItemId) {
@@ -234,6 +244,20 @@
 			renderData();
 		}
 
+		function deleteLayer(listItemId) {
+			var layerIndex = -1;
+			layerList.forEach(function (item, index) {
+				if(item["listItemId"] == listItemId) {
+					layerIndex = index;
+				}
+			});
+			$("#" + listItemId).remove();
+			layerList.splice(layerIndex, 1);
+			if(layerIndex < curLayerIdx)
+				curLayerIdx--;
+			renderData();
+		}
+
 		function submitAndRender() {
 			var dataURL = buildURL(true, false);
 			var permalink = buildURL(false, true);
@@ -254,6 +278,7 @@
                 
                 layerList[curLayerIdx].layerData = vectorLayer;
 				renderData();
+				disableActionButtons(false);
 			});
 			XHR.addEventListener( 'error', function(event) {
 				$("#renderMessage").html(`Error ${XHR.status}: ${XHR.statusText}`);
@@ -365,7 +390,7 @@
 		<tbody>
 			<tr>
 				<td width="40%">
-					<form id="datareq" action="javascript:void(0);" onSubmit="submitAndDownload()">
+					<form id="datareq" action="javascript:void(0);" onSubmit="if(validInputs()) submitAndRender();">
 						<table  border="0" cellspacing="10">
 							<tbody>
 								<tr>
@@ -546,13 +571,13 @@
 										<table>
 											<tr>
 												<td>
-													<button type="submit">Download</button>
+													<button type="button" id="downloadButton" onclick="submitAndDownload()">Download</button>
 												</td>
 												<td>
-													<button type="button" onclick="if(validInputs()) submitAndRender();">Refresh Layer</button>
+													<button type="submit" id="refreshButton">Refresh Layer</button>
 												</td>
 												<td>
-													<button type="button" onclick="addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
+													<button type="button" id="addLayerButton" onclick="addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
 												</td>
 											</tr>
 										</table>
@@ -574,7 +599,7 @@
 					</div>
 				</td>
 				<td width="20%" style="vertical-align:top">
-					<div id="layerList" class="list-group">
+					<div id="layerList" class="list-group" style="overflow: scroll; max-height: 75%; -webkit-overflow-scrolling: touch;">
 					</div>
 			</td>
 			</tr>
