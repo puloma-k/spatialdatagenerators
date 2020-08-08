@@ -201,11 +201,12 @@
 			var listHTML = '<a id="' + listItemId 
                 + '" class="list-group-item list-group-item-action active">'
                 + '<label>'
-				+ '<input class="" type="checkbox" id="' + listItemId + 'check"  />'
+				+ '<input class="" type="checkbox" id="' + listItemId + 'check" checked/>'
                 + layerList[curLayerIdx].name + '</label>'
                 + '</a>';
 			$("#layerList").append(listHTML);
 			$("#" + listItemId).click(function (e) {restoreLayer(listItemId);});
+			$("#" + listItemId + "check").click(function (e) {toggleLayerVisibility(listItemId);});
 		}
 
 		function restoreLayer(listItemId) {
@@ -222,6 +223,17 @@
 			updateInputs();
 		}
 		
+		function toggleLayerVisibility(listItemId) {
+			var layer = null;
+			layerList.forEach(function (item, index) {
+				if(item["listItemId"] == listItemId) {
+					layer = item;
+				}
+			});
+			layer.enabled = !layer.enabled;
+			renderData();
+		}
+
 		function submitAndRender() {
 			var dataURL = buildURL(true, false);
 			var permalink = buildURL(false, true);
@@ -241,23 +253,28 @@
                 });
                 
                 layerList[curLayerIdx].layerData = vectorLayer;
-                
-                var view = new ol.View({
-                    center: [0.5, 0.5],
-                    zoom: 25
-                });
-                
-                var map = new ol.Map({
-                    target: 'dataContent',
-                    layers: getEnabledLayersData(),
-                    view: view
-                });
+				renderData();
 			});
 			XHR.addEventListener( 'error', function(event) {
 				$("#renderMessage").html(`Error ${XHR.status}: ${XHR.statusText}`);
 			});
 			XHR.open( 'GET', dataURL);
 			XHR.send(null);
+		}
+
+		function renderData() {
+			newLayers = getEnabledLayersData();
+			$("#dataContent").html("");
+			var view = new ol.View({
+				center: [0.5, 0.5],
+				zoom: 25
+			});
+			
+			var map = new ol.Map({
+				target: 'dataContent',
+				layers: newLayers,
+				view: view
+			});
 		}
 		
 		function getEnabledLayersData() {
@@ -310,6 +327,8 @@
 				if(paramString.has("a6"))
 					$('#a6').val(paramString.get("a6"));
 			}
+			
+
 			addLayer();
 			updateInputs();
 			if(validInputs())
