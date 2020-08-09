@@ -6,12 +6,13 @@ import random as rand
 import sys
 from urllib import parse
 import bz2
+import numpy as np
 from math import log
 from dataclasses import dataclass
 
 class Generator(ABC):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm):
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix):
         self.card = card
         self.geo = geo
         self.dim = dim
@@ -19,6 +20,7 @@ class Generator(ABC):
         self.output_format = output_format
         self.strm = strm
         self.compressor = None
+        self.affineMatrix = affineMatrix
 
     def bernoulli(self, p):
         return 1 if rand.random() < p else 0
@@ -45,8 +47,8 @@ class Generator(ABC):
 
 class PointGenerator(Generator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm):
-        super(PointGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix):
+        super(PointGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     def generate(self):
         pass
@@ -67,6 +69,19 @@ class PointGenerator(Generator):
             
         while i < self.card:
             point = self.generate_point(i, prev_point)
+            
+#             coordinateArr = [];
+#             for a in point.coordinates:
+#                 coordinateArr.append([a])
+#             coordinateArr.append([1])
+#             dataMatrix = np.array(coordinateArr)
+#             transformedData = np.matmul(self.affineMatrix, dataMatrix)
+#             
+#             newCoordinates = []
+#             for a in range(2):
+#                 newCoordinates.append(transformedData[a][0])
+#             point.coordinates = newCoordinates
+    
             if self.is_valid_point(point):
                 prev_point = point
                 data = prev_point.to_string(self.output_format) + '\n'
@@ -91,11 +106,10 @@ class PointGenerator(Generator):
         pass
     
 
-
 class UniformGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm):
-        super(UniformGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix):
+        super(UniformGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     def generate_point(self, i, prev_point):
         coordinates = [rand.random() for d in range(self.dim)]
@@ -104,8 +118,8 @@ class UniformGenerator(PointGenerator):
 
 class DiagonalGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm, percentage, buffer):
-        super(DiagonalGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix, percentage, buffer):
+        super(DiagonalGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
         self.percentage = percentage
         self.buffer = buffer
 
@@ -122,8 +136,8 @@ class DiagonalGenerator(PointGenerator):
 
 class GaussianGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm):
-        super(GaussianGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix):
+        super(GaussianGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     def generate_point(self, i, prev_point):
         coordinates = [self.normal(0.5, 0.1) for d in range(self.dim)]
@@ -132,8 +146,8 @@ class GaussianGenerator(PointGenerator):
 
 class SierpinskiGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm):
-        super(SierpinskiGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix):
+        super(SierpinskiGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     def generate_point(self, i, prev_point):
         if i == 0:
@@ -164,8 +178,8 @@ class SierpinskiGenerator(PointGenerator):
 
 class BitGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm, prob, digits):
-        super(BitGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix, prob, digits):
+        super(BitGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
         self.prob = prob
         self.digits = digits
 
@@ -183,8 +197,8 @@ class BitGenerator(PointGenerator):
 
 class ParcelGenerator(PointGenerator):
 
-    def __init__(self, card, geo, dim, dist, output_format, strm, split_range, dither):
-        super(ParcelGenerator, self).__init__(card, geo, dim, dist, output_format, strm)
+    def __init__(self, card, geo, dim, dist, output_format, strm, affineMatrix, split_range, dither):
+        super(ParcelGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
         self.split_range = split_range
         self.dither = dither
 
@@ -323,8 +337,6 @@ class Point(Geometry):
             i += 1
         return json_str + ']}, "properties": null}'
         
-                    
-
 
 class Box(Geometry):
 
@@ -354,12 +366,17 @@ class Box(Geometry):
 class BoxWithDepth:
     box_field: Box
     depth: int
-
+    
+def sendErrorToBrowser(message):
+    sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
+    sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
+    sys.stdout.buffer.write(bytes(message, 'utf-8'))
+    sys.stderr.write(message)
 
 def main():
     url = os.environ["REQUEST_URI"]
     # Enable following url to debug without web server
-#     url = "http://localhost/cgi/generator.py?dist=parcel&card=5&geo=box&dim=2&fmt=wkt&dith=0&sran=0.5&strm=s"
+#     url = "http://localhost/generator.py?card=3&dist=uniform&dim=2&fmt=wkt&geo=point&seed=1596762350433&a1=2&a2=1.5&a3=0&a4=0&a5=0&a6=0&strm=cfile&"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query, keep_blank_values=True)) # Parse url to get parameter values in pDict
     
@@ -367,46 +384,45 @@ def main():
         rand.seed(int(pDict['seed']))
 
     try:
-        card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
+        card, geo, dim, dist, output_format, strm, a1, a2, a3, a4, a5, a6 = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm'], float(pDict['a1']), float(pDict['a2']), float(pDict['a3']), float(pDict['a4']), float(pDict['a5']), float(pDict['a6'])
     except (BaseException, Exception, ArithmeticError, BufferError, LookupError):
-        sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
-        sys.stdout.buffer.write(bytes('\r\n', 'utf-8'))
-        sys.stdout.buffer.write(bytes("Please check your arguments", 'utf-8'))
-        sys.stderr.write("Please check your arguments")
-        exit(1)
+        sendErrorToBrowser("Please check your arguments")
+        sys.exit(1)
+        
+    affineMatrix = np.array([[a1, a2, a3], [a4, a5, a6], [0, 0, 1]])
 
     if dist == 'uniform':
-        generator = UniformGenerator(card, geo, dim, dist, output_format, strm)
+        generator = UniformGenerator(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     elif dist == 'diagonal':
         percentage, buffer = float(pDict['per']), float(pDict['buf'])
-        generator = DiagonalGenerator(card, geo, dim, dist, output_format, strm, percentage, buffer)
+        generator = DiagonalGenerator(card, geo, dim, dist, output_format, strm, affineMatrix, percentage, buffer)
 
     elif dist == 'gaussian':
-        generator = GaussianGenerator(card, geo, dim, dist, output_format, strm)
+        generator = GaussianGenerator(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     elif dist == 'sierpinski':
         if dim != 2:
-            print('Currently we only support 2 dimensions for Sierpinski distribution')
-            sys.exit()
+            sendErrorToBrowser('Currently we only support 2 dimensions for Sierpinski distribution')
+            sys.exit(1)
 
-        generator = SierpinskiGenerator(card, geo, dim, dist, output_format, strm)
+        generator = SierpinskiGenerator(card, geo, dim, dist, output_format, strm, affineMatrix)
 
     elif dist == 'bit':
         prob, digits = float(pDict['prob']), int(pDict['dig'])
-        generator = BitGenerator(card, geo, dim, dist, output_format, strm, prob, digits)
+        generator = BitGenerator(card, geo, dim, dist, output_format, strm, affineMatrix, prob, digits)
 
     elif dist == 'parcel':
         if dim != 2:
-            print('Currently we only support 2 dimensions for Parcel distribution')
-            sys.exit()
+            sendErrorToBrowser('Currently we only support 2 dimensions for Parcel distribution')
+            sys.exit(1)
 
         split_range, dither = float(pDict['sran']), float(pDict['dith'])
-        generator = ParcelGenerator(card, geo, dim, dist, output_format, strm, split_range, dither)
+        generator = ParcelGenerator(card, geo, dim, dist, output_format, strm, affineMatrix, split_range, dither)
 
     else:
-        print('Please check the distribution type.')
-        sys.exit()
+        sendErrorToBrowser('Please check the distribution type.')
+        sys.exit(1)
         
     # Sets default download filename in save file dialog box in browser    
     remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".bz2"
