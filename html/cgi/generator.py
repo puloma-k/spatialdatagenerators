@@ -70,17 +70,18 @@ class PointGenerator(Generator):
         while i < self.card:
             point = self.generate_point(i, prev_point)
             
-#             coordinateArr = [];
-#             for a in point.coordinates:
-#                 coordinateArr.append([a])
-#             coordinateArr.append([1])
-#             dataMatrix = np.array(coordinateArr)
-#             transformedData = np.matmul(self.affineMatrix, dataMatrix)
-#             
-#             newCoordinates = []
-#             for a in range(2):
-#                 newCoordinates.append(transformedData[a][0])
-#             point.coordinates = newCoordinates
+            if(self.affineMatrix is not None):
+                coordinateArr = [];
+                for a in point.coordinates:
+                    coordinateArr.append([a])
+                coordinateArr.append([1])
+                dataMatrix = np.array(coordinateArr)
+                transformedData = np.matmul(self.affineMatrix, dataMatrix)
+                 
+                newCoordinates = []
+                for a in range(2):
+                    newCoordinates.append(transformedData[a][0])
+                point.coordinates = newCoordinates
     
             if self.is_valid_point(point):
                 prev_point = point
@@ -376,7 +377,7 @@ def sendErrorToBrowser(message):
 def main():
     url = os.environ["REQUEST_URI"]
     # Enable following url to debug without web server
-#     url = "http://localhost/generator.py?card=3&dist=uniform&dim=2&fmt=wkt&geo=point&seed=1596762350433&a1=2&a2=1.5&a3=0&a4=0&a5=0&a6=0&strm=cfile&"
+#     url = "http://localhost/cgi/generator.py?dist=uniform&dim=2&card=100&fmt=wkt&per=0.5&buf=0.5&prob=0.5&dig=2&sran=0.5&dith=0.5&geo=point&strm=browser&seed=1596950671543&"
 
     pDict = dict(parse.parse_qsl(parse.urlparse(url).query, keep_blank_values=True)) # Parse url to get parameter values in pDict
     
@@ -384,12 +385,27 @@ def main():
         rand.seed(int(pDict['seed']))
 
     try:
-        card, geo, dim, dist, output_format, strm, a1, a2, a3, a4, a5, a6 = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm'], float(pDict['a1']), float(pDict['a2']), float(pDict['a3']), float(pDict['a4']), float(pDict['a5']), float(pDict['a6'])
+        card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
     except (BaseException, Exception, ArithmeticError, BufferError, LookupError):
         sendErrorToBrowser("Please check your arguments")
         sys.exit(1)
         
-    affineMatrix = np.array([[a1, a2, a3], [a4, a5, a6], [0, 0, 1]])
+    # if one affine transformation parameter exists, then all should exist
+    if (pDict.get('a1') or pDict.get('a2') or pDict.get('a3') or pDict.get('a4') or pDict.get('a5') or pDict.get('a6')):
+        if (not pDict.get('a1') or not pDict.get('a2') or not pDict.get('a3') or not pDict.get('a4') or not pDict.get('a5') or not pDict.get('a6')):
+            sendErrorToBrowser("Enter all parameters for transformation")
+            sys.exit(1)
+            
+    if pDict.get('a1'):
+        a1 = float(pDict['a1'])
+        a2 = float(pDict['a2'])
+        a3 = float(pDict['a3'])
+        a4 = float(pDict['a4'])
+        a5 = float(pDict['a5'])
+        a6 = float(pDict['a6'])
+        affineMatrix = np.array([[a1, a2, a3], [a4, a5, a6], [0, 0, 1]])
+    else:
+        affineMatrix = None
 
     if dist == 'uniform':
         generator = UniformGenerator(card, geo, dim, dist, output_format, strm, affineMatrix)
