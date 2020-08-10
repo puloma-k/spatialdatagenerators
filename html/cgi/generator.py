@@ -43,7 +43,20 @@ class Generator(ABC):
         if(self.compressor):
             data_bytes = self.compressor.compress(data_bytes)
         sys.stdout.buffer.write(data_bytes)
-
+        
+    def affineTransformArray(self, coordinates):
+        coordinateArr = [];
+        for a in coordinates:
+            coordinateArr.append([a])
+        coordinateArr.append([1])
+        dataMatrix = np.array(coordinateArr)
+        transformedData = np.matmul(self.affineMatrix, dataMatrix)
+         
+        newCoordinates = []
+        for a in range(2):
+            newCoordinates.append(transformedData[a][0])
+        return newCoordinates
+    
 
 class PointGenerator(Generator):
 
@@ -71,17 +84,7 @@ class PointGenerator(Generator):
             point = self.generate_point(i, prev_point)
             
             if(self.affineMatrix is not None):
-                coordinateArr = [];
-                for a in point.coordinates:
-                    coordinateArr.append([a])
-                coordinateArr.append([1])
-                dataMatrix = np.array(coordinateArr)
-                transformedData = np.matmul(self.affineMatrix, dataMatrix)
-                 
-                newCoordinates = []
-                for a in range(2):
-                    newCoordinates.append(transformedData[a][0])
-                point.coordinates = newCoordinates
+                point.coordinates = self.affineTransformArray(point.coordinates)
     
             if self.is_valid_point(point):
                 prev_point = point
@@ -202,6 +205,18 @@ class ParcelGenerator(PointGenerator):
         super(ParcelGenerator, self).__init__(card, geo, dim, dist, output_format, strm, affineMatrix)
         self.split_range = split_range
         self.dither = dither
+        
+    def applyTransformation(self, b):
+        lowerLeft = [b.box_field.x, b.box_field.y]
+        upperRight = [b.box_field.x + b.box_field.w, b.box_field.y + b.box_field.h]
+        lowerLeft = self.affineTransformArray(lowerLeft)
+        upperRight = self.affineTransformArray(upperRight)
+        
+        b.box_field.x = lowerLeft[0]
+        b.box_field.y = lowerLeft[1]
+        b.box_field.w = upperRight[0] - lowerLeft[0]
+        b.box_field.h = upperRight[1] - lowerLeft[1]
+        
 
     def generate_and_write(self):
         # Tried gzip and underlying zlib, neither has a bug-free implementation in Python
@@ -281,7 +296,10 @@ class ParcelGenerator(PointGenerator):
     def dither_and_print(self, b):
         b.box_field.w = b.box_field.w * (1.0 - rand.uniform(0.0, self.dither))
         b.box_field.h = b.box_field.h * (1.0 - rand.uniform(0.0, self.dither))
-
+        
+        if(self.affineMatrix is not None):
+            self.applyTransformation(b)
+            
         data = b.box_field.to_string(self.output_format) + '\n'
         self.write_out(data)
         

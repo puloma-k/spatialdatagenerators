@@ -303,14 +303,11 @@
 						image: new ol.style.Circle({
 							radius: 2,
 							fill: new ol.style.Fill({
-								// color: colorNames[curColorIdx] % colorNames.length,
 								color: colorNames[curColorIdx % colorNames.length]
 							})
 						}),
 					})
                 });
-				curColorIdx++;
-
                 layerList[curLayerIdx].layerData = vectorLayer;
 				renderData();
 				disableActionButtons(false);
@@ -385,8 +382,6 @@
 				if(paramString.has("a6"))
 					$('#a6').val(paramString.get("a6"));
 			}
-			
-
 			addLayer();
 			updateInputs();
 			if(validInputs())
@@ -610,7 +605,7 @@
 													<button type="submit" id="refreshButton">Refresh Layer</button>
 												</td>
 												<td>
-													<button type="button" id="addLayerButton" onclick="addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
+													<button type="button" id="addLayerButton" onclick="curColorIdx++; addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
 												</td>
 											</tr>
 										</table>
