@@ -23,12 +23,23 @@
 		.hide { position:absolute; top:-1px; left:-1px; width:1px; height:1px; }
 		.inputError { color: red; font-size: 15px; }
 		.transformfields { text-align: right; }
-		#dataContent { width: 70%; height: 300px; }
+		#dataContent { width: 30em; height: 30em; }
+		.right-rail-list {
+			height: 25em;
+			line-height: 1em;
+			overflow: scroll;
+		}
 	</style>
 
 	<title>Spatial Data Generator</title>
 	
 	<script>
+		var colorNames = ["blue", "red", "green", "orange", "black", "purple", "gray", "brown", "gold"];
+		var curColorIdx = 0;
+		layerList = [];
+		curLayerIdx = 0;
+		nextLayerIdx = 1;
+
 		var fEnableObj = {
 			"perc": "diagonal",
 			"buf": "diagonal",
@@ -197,14 +208,15 @@
 			layerList.push({});
 			$("#" + layerList[curLayerIdx].listItemId).removeClass("active");
 			curLayerIdx = layerList.length - 1;
-			var listItemId = "lla" + curLayerIdx;
+			var listItemId = "lla" + nextLayerIdx;
 			layerList[curLayerIdx] = {
 				listItemId: listItemId,
-				name: "Layer " + (curLayerIdx + 1),
+				name: "Layer " + (nextLayerIdx),
 				enabled: true,
 				layerData: null,
 				layerParams: formToJSON()
 			}
+			nextLayerIdx++;
 			var listHTML = '<a id="' + listItemId 
                 + '" class="list-group-item list-group-item-action active">'
 				+ '<div class="d-flex w-100 justify-content-between">'
@@ -270,12 +282,27 @@
 					return;
 				}
 				$("#dataContent").html("");
+
                 var vectorLayer = new ol.layer.Vector({
                     source: new ol.source.Vector({
                         features: (new ol.format.WKT()).readFeatures(XHR.responseText)
-                    })
+                    }),
+					style: new ol.style.Style({
+						stroke: new ol.style.Stroke({
+							color: colorNames[curColorIdx % colorNames.length],
+							width: 1
+						}), 
+						image: new ol.style.Circle({
+							radius: 2,
+							fill: new ol.style.Fill({
+								// color: colorNames[curColorIdx] % colorNames.length,
+								color: colorNames[curColorIdx % colorNames.length]
+							})
+						}),
+					})
                 });
-                
+				curColorIdx++;
+
                 layerList[curLayerIdx].layerData = vectorLayer;
 				renderData();
 				disableActionButtons(false);
@@ -292,7 +319,7 @@
 			$("#dataContent").html("");
 			var view = new ol.View({
 				center: [0.5, 0.5],
-				zoom: 25
+				zoom: 26
 			});
 			
 			var map = new ol.Map({
@@ -312,8 +339,6 @@
 		}
 		
 		function setupSubmitAndRender() {
-			layerList = [];
-			curLayerIdx = 0;
 			var curURL = new URL(window.location);
 			var paramString = new URLSearchParams(curURL.searchParams);
 			if(paramString != "") {
@@ -599,7 +624,7 @@
 					</div>
 				</td>
 				<td width="20%" style="vertical-align:top">
-					<div id="layerList" class="list-group" style="overflow: scroll; max-height: 75%; -webkit-overflow-scrolling: touch;">
+					<div id="layerList" class="list-group right-rail-list">
 					</div>
 			</td>
 			</tr>
