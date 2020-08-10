@@ -16,10 +16,11 @@
 		.widgettab { vertical-align: top; text-align: left; }
 		.bigtab { } 
 		.pagehead { text-align: center; }
-		.optionlabel1 { text-align: right; width: 35%; }
-		.optiondata1 { width: 15%; }
-		.optionlabel2 { text-align: right; width: 15%; }
-		.optiondata2 { width: 35%; }
+		.optionlabel1 { text-align: right; }
+		.optiondata1 { }
+		.optionlabel2 { text-align: right; }
+		.optiondata2 { }
+		.inputField { width: 7vw; }
 		.hide { position:absolute; top:-1px; left:-1px; width:1px; height:1px; }
 		.inputError { color: red; font-size: 15px; }
 		.transformfields { text-align: right; }
@@ -153,6 +154,7 @@
 			if (paramVals.a1 || paramVals.a2 || paramVals.a3 || paramVals.a4 || paramVals.a5 || paramVals.a6) {
 				if (!paramVals.a1 || !paramVals.a2 || !paramVals.a3 || !paramVals.a4 || !paramVals.a5 || !paramVals.a6) {
 					$("#transformMessage").html("Fill all values for transformation");
+					return null;
 				}
 			}
 			paramVals["geo"] = "point";
@@ -267,11 +269,17 @@
 			layerList.splice(layerIndex, 1);
 			if(layerIndex < curLayerIdx)
 				curLayerIdx--;
+			if (layerList.length <= 0) {
+				$("#refreshButton").prop("disabled", true);
+				$("#downloadButton").prop("disabled", true);
+			}
 			renderData();
 		}
 
 		function submitAndRender() {
 			var dataURL = buildURL(true, false);
+			if (dataURL == null)
+				return;
 			var permalink = buildURL(false, true);
 			$("#plink").val(permalink);
 
@@ -408,7 +416,7 @@
 
 </head>
 
-<body style="background-color:#FEFEFF;" onload="setupSubmitAndRender()">
+<body style="background-color:#f2f4f7;" onload="setupSubmitAndRender()">
 	<h1 class="pagehead">Spatial Data Generator</h1>
 	
 	<table class="bigtab">
@@ -436,7 +444,7 @@
 										Cardinality:	
 									</td>
 									<td class="optiondata2">
-										<input type="number" value="100" id="card" name="card"></input>
+										<input class="inputField" type="number" value="100" id="card" name="card"></input>
 										<div class="inputError" id="cardInputError"></div>
 									</td>
 								</tr>
@@ -447,7 +455,7 @@
 									</td>
 									
 									<td class="optiondata1">
-										<input type="number" value="2" id="dim" name="dim"></input>
+										<input class="inputField"  type="number" value="2" id="dim" name="dim"></input>
 										<div class="inputError" id="dimInputError"></div>
 									</td>					
 									
@@ -469,14 +477,14 @@
 										Percentage:
 									</td>
 									<td class="optiondata1">
-										<input type="text" value="0.5" id="per" name="per"></input>
+										<input class="inputField"  type="text" value="0.5" id="per" name="per"></input>
 										<div class="inputError" id="perInputError"></div>
 									</td>
 									<td class="optionlabel2">
 										Buffer:
 									</td>
 									<td class="optiondata2">
-										<input type="text" value="0.5" id="buf" name="buf"></input>
+										<input class="inputField"  type="text" value="0.5" id="buf" name="buf"></input>
 										<div class="inputError" id="bufInputError"></div>
 									</td>
 								</tr>
@@ -486,14 +494,14 @@
 										Probability:
 									</td>
 									<td class="optiondata1">
-										<input type="text" value="0.5" id="prob" name="prob"></input>
+										<input class="inputField"  type="text" value="0.5" id="prob" name="prob"></input>
 										<div class="inputError" id="probInputError"></div>
 									</td>
 									<td class="optionlabel2">
 										Digits:
 									</td>
 									<td class="optiondata2">
-										<input type="number" value="2" id="dig" name="dig"></input>
+										<input class="inputField"  type="number" value="2" id="dig" name="dig"></input>
 										<div class="inputError" id="digInputError"></div>
 									</td>
 								</tr>
@@ -503,14 +511,14 @@
 										Split range:
 									</td>
 									<td class="optiondata1">
-										<input type="text" value="0.5" id="sran" name="sran"></input>
+										<input class="inputField"  type="text" value="0.5" id="sran" name="sran"></input>
 										<div class="inputError" id="sranInputError"></div>
 									</td>
 									<td class="optionlabel2">
 										Dither:
 									</td>
 									<td class="optiondata2">
-										<input type="text" value="0.5" id="dith" name="dith"></input>
+										<input class="inputField"  type="text" value="0.5" id="dith" name="dith"></input>
 										<div class="inputError" id="dithInputError"></div>
 									</td>
 								</tr>
@@ -520,7 +528,7 @@
 										Seed value:
 									</td>
 									<td class="optiondata1">
-										<input type="number" id="seed" name="seed"></input>
+										<input class="inputField" type="number" id="seed" name="seed"></input>
 										<div class="inputError" id="seedInputError"></div>
 									</td>
 									
@@ -544,13 +552,13 @@
 										a1:
 									</td>
 									<td class="optiondata1">
-										<input type="text" id="a1" name="a1"></input>
+										<input class="inputField" type="text" id="a1" name="a1"></input>
 									</td>
 									<td class="optionlabel2">
 										a2:
 									</td>
 									<td class="optiondata2">
-										<input type="text" id="a2" name="a2"></input>
+										<input class="inputField" type="text" id="a2" name="a2"></input>
 									</td>
 								</tr>
 								
@@ -559,13 +567,13 @@
 										a3:
 									</td>
 									<td class="optiondata1">
-										<input type="text" id="a3" name="a3"></input>
+										<input class="inputField" type="text" id="a3" name="a3"></input>
 									</td>
 									<td class="optionlabel2">
 										a4:
 									</td>
 									<td class="optiondata2">
-										<input type="text" id="a4" name="a4"></input>
+										<input class="inputField" type="text" id="a4" name="a4"></input>
 									</td>
 								</tr>
 								
@@ -574,19 +582,19 @@
 										a5:
 									</td>
 									<td class="optiondata1">
-										<input type="text" id="a5" name="a5"></input>
+										<input class="inputField" type="text" id="a5" name="a5"></input>
 									</td>
 									<td class="optionlabel2">
 										a6:
 									</td>
 									<td class="optiondata2">
-										<input type="text" id="a6" name="a6"></input>
+										<input class="inputField" type="text" id="a6" name="a6"></input>
 									</td>
 								</tr>
 								
 								<tr>
-									<td>
-										<div id="transformMessage" name="transformMessage" align="center"> </div>
+									<td colspan="4">
+										<div id="transformMessage" name="transformMessage" align="center" style="color: red;"> </div>
 									</td>
 								</tr>
 								
@@ -612,7 +620,7 @@
 						</table>
 					</form>
 				</td>
-				<td width="40%" style="border: 2px solid black">
+				<td width="40%" style="background-color: white; border: 2px solid black">
 					<div id="downloadErrorDiv" name="downloadErrorDiv"> 
 						<iframe id="downloadOrError" name="downloadOrError" class="hide"> </iframe> 
 					</div>
