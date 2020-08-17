@@ -21,6 +21,7 @@ class Generator(ABC):
         self.strm = strm
         self.compressor = None
         self.affineMatrix = affineMatrix
+        self.render = 0
 
     def bernoulli(self, p):
         return 1 if rand.random() < p else 0
@@ -45,7 +46,7 @@ class Generator(ABC):
         sys.stdout.buffer.write(data_bytes)
         
     def affineTransformArray(self, coordinates):
-        coordinateArr = [];
+        coordinateArr = []
         for a in coordinates:
             coordinateArr.append([a])
         coordinateArr.append([1])
@@ -56,6 +57,24 @@ class Generator(ABC):
         for a in range(2):
             newCoordinates.append(transformedData[a][0])
         return newCoordinates
+
+    def getTransformedBbox(self):
+        polygon_string = 'POLYGON (('
+        bbox_coord = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
+        if(self.affineMatrix is not None):
+            newbbox_coord = []
+            for p in bbox_coord:
+                newbbox_coord.append(self.affineTransformArray(p))
+            bbox_coord = newbbox_coord
+        
+        coord_string = ''
+        for i in range(5):
+            p = bbox_coord[i]
+            coord_string += (str(p[0]) + ' ' + str(p[1]))
+            if i != 4:
+                coord_string += ','
+        polygon_string += (coord_string + '))')
+        return polygon_string
     
 
 class PointGenerator(Generator):
@@ -74,7 +93,10 @@ class PointGenerator(Generator):
         
         if self.strm == "cfile":
             self.compressor = bz2.BZ2Compressor()
-            
+        
+        if self.render == 1:
+            self.write_out('GEOMETRYCOLLECTION (')
+
         if self.output_format == "gjson":
             self.write_out('{"type": "FeatureCollection", "features": [')
         if self.output_format == "wkt":
@@ -100,7 +122,11 @@ class PointGenerator(Generator):
             self.write_out(']}') 
         if self.output_format == "wkt":
             self.write_out(')')  
-         
+        
+        if self.render == 1:
+            polygon_string = self.getTransformedBbox()
+            self.write_out(', ' + polygon_string + ')')
+
         if self.strm == "cfile":       
             data = self.compressor.flush() # Get the last bits of data remaining in the compressor
             sys.stdout.buffer.write(data)
@@ -237,6 +263,9 @@ class ParcelGenerator(PointGenerator):
         numToSplit = self.card - pow(2, max(max_height - 1, 0))
         numSplit = 0
         boxes_generated = 0
+
+        if self.render == 1:
+            self.write_out('GEOMETRYCOLLECTION(')
         
         if self.output_format == "gjson":
             self.write_out('{"type": "FeatureCollection", "features": [{ "type": "Feature", "geometry": { "type": "MultiPolygon", "coordinates": [')
@@ -274,7 +303,11 @@ class ParcelGenerator(PointGenerator):
             self.write_out(']}, "properties": null }]}')
         if self.output_format == "wkt":
             self.write_out(')')
-                
+
+        if self.render == 1:
+            polygon_string = self.getTransformedBbox()
+            self.write_out(', ' + polygon_string + ')')
+
         if self.strm == "cfile":       
             data = bz2_compressor.flush() # Get the last bits of data remaining in the compressor
             sys.stdout.buffer.write(data)
@@ -403,7 +436,7 @@ def main():
         rand.seed(int(pDict['seed']))
 
     try:
-        card, geo, dim, dist, output_format, strm = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm']
+        card, geo, dim, dist, output_format, strm, render = int(pDict['card']), pDict['geo'], int(pDict['dim']), pDict['dist'], pDict['fmt'], pDict['strm'], int(pDict['render'])
     except (BaseException, Exception, ArithmeticError, BufferError, LookupError):
         sendErrorToBrowser("Please check your arguments")
         sys.exit(1)
@@ -457,7 +490,9 @@ def main():
     else:
         sendErrorToBrowser('Please check the distribution type.')
         sys.exit(1)
-        
+    
+    generator.render = render
+
     # Sets default download filename in save file dialog box in browser    
     remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".bz2"
     

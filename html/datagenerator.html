@@ -9,6 +9,7 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
 	<link rel="shortcut icon" href="sd.ico">
+	<link href="//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css" rel="stylesheet">
 	<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css">
 	<style type="text/css">
@@ -165,7 +166,7 @@
 					paramVals["card"] = 1000;
 					message += "Only up to 1000 points supported for visualization. Cardinality overridden.";
 				}
-				if(paramVals["dim"] > 2) {
+				if(paramVals["dim"] != 2) {
 					paramVals["dim"] = 2;
 					if(message)
 						message += "<br>";
@@ -173,9 +174,11 @@
 				}
 				paramVals["fmt"] = "wkt";
 				paramVals["strm"] = "browser";
+				paramVals["render"] = 1;
 				$("#renderMessage").html(message);
 			} else {
 				paramVals["strm"] = "cfile";
+				paramVals["render"] = 0;
 			}
 			
 			if(!paramVals["seed"]) {
@@ -267,12 +270,13 @@
 			});
 			$("#" + listItemId).remove();
 			layerList.splice(layerIndex, 1);
-			if(layerIndex < curLayerIdx)
+			if(layerIndex <= curLayerIdx)
 				curLayerIdx--;
 			if (layerList.length <= 0) {
 				$("#refreshButton").prop("disabled", true);
 				$("#downloadButton").prop("disabled", true);
 			}
+			restoreLayer("lla" + (curLayerIdx + 1));
 			renderData();
 		}
 
@@ -344,6 +348,9 @@
 		}
 		
 		function setupSubmitAndRender() {
+			$(function () {
+				$('[data-toggle="tooltip"]').tooltip()
+			})
 			var curURL = new URL(window.location);
 			var paramString = new URLSearchParams(curURL.searchParams);
 			if(paramString != "") {
@@ -423,7 +430,7 @@
 							<tbody>
 								<tr>
 									<td class="optionlabel1">
-										Distribution:
+										Distribution:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="The distribution type of the data" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<select id="dist" name="dist" onchange="updateInputs()">
@@ -436,7 +443,7 @@
 										</select>
 									</td>
 									<td class="optionlabel2">
-										Cardinality:	
+										Cardinality:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="The number of records to generate" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="number" value="100" id="card" name="card"></input>
@@ -446,17 +453,15 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Dimension:
+										Dimension:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="The dimensionality of the generated geometries. Only 2D data is supported for rendering." style="display: inline-block"></div>
 									</td>
-									
 									<td class="optiondata1">
 										<input class="inputField"  type="number" value="2" id="dim" name="dim"></input>
 										<div class="inputError" id="dimInputError"></div>
 									</td>					
 									
-									
 									<td class="optionlabel2">
-										Format:
+										Format:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Output format of data" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<select id="fmt" name="fmt">
@@ -469,14 +474,14 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Percentage:
+										Percentage:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Diagonal distribution: The percentage (ratio) of the points that are exactly on the line." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField"  type="text" value="0.5" id="per" name="per"></input>
 										<div class="inputError" id="perInputError"></div>
 									</td>
 									<td class="optionlabel2">
-										Buffer:
+										Buffer:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Diagonal distribution: The size of the buffer around the line where additional geometries are scattered." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField"  type="text" value="0.5" id="buf" name="buf"></input>
@@ -486,14 +491,14 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Probability:
+										Probability:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Bit distribution: The probability of setting each bit independently to 1." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField"  type="text" value="0.5" id="prob" name="prob"></input>
 										<div class="inputError" id="probInputError"></div>
 									</td>
 									<td class="optionlabel2">
-										Digits:
+										Digits:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Bit distribution: The number of binary digits after the fraction point." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField"  type="number" value="2" id="dig" name="dig"></input>
@@ -503,14 +508,14 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Split range:
+										Split range:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Parcel distribution: The minimum tiling range for splitting a box. r = 0 indicates that all the ranges are allowed while r = 0.5 indicates that a box is always split into half." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField"  type="text" value="0.5" id="sran" name="sran"></input>
 										<div class="inputError" id="sranInputError"></div>
 									</td>
 									<td class="optionlabel2">
-										Dither:
+										Dither:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField"  type="text" value="0.5" id="dith" name="dith"></input>
@@ -520,25 +525,18 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Seed value:
+										Seed value:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Tooltip on bottom" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="number" id="seed" name="seed"></input>
 										<div class="inputError" id="seedInputError"></div>
-									</td>
-									
-									<td class="optionlabel2">
-										Permalink:
-									</td>
-									<td class="optiondata2">
-										<input type="text" id="plink" name="plink" value="" readonly></input>
 									</td>
 								</tr>
 								
 								
 								<tr>
 									<td colspan="4" align="center">
-										Affine transformation parameters
+										Affine transformation parameters<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Tooltip on bottom" style="display: inline-block"></div>
 									</td>
 								</tr>
 								
@@ -611,6 +609,15 @@
 										</table>
 									</td>
 								</tr>
+
+								<tr>
+									<td >
+										Permalink:
+									</td>
+									<td >
+										<input type="text" id="plink" name="plink" value="" readonly></input>
+									</td>
+								</tr>
 							</tbody>
 						</table>
 					</form>
@@ -619,10 +626,10 @@
 					<div id="downloadErrorDiv" name="downloadErrorDiv"> 
 						<iframe id="downloadOrError" name="downloadOrError" class="hide"> </iframe> 
 					</div>
-					<div id="renderMessage" name="renderMessage"> </div>
+					<div id="renderMessage" name="renderMessage" style="color: red"> </div>
 						
 					<div id="dataContent" name="dataContent" align="left">
-						Data should be rendered here.
+						Data will be rendered here.
 						<iframe id="resultData" name="resultData" class="hide"></iframe>
 					</div>
 				</td>
