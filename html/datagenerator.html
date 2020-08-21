@@ -174,11 +174,13 @@
 				}
 				paramVals["fmt"] = "wkt";
 				paramVals["strm"] = "browser";
-				paramVals["render"] = 1;
+				if(!forPlink)
+					paramVals["render"] = 1;
 				$("#renderMessage").html(message);
 			} else {
 				paramVals["strm"] = "cfile";
-				paramVals["render"] = 0;
+				if(!forPlink)
+					paramVals["render"] = 0;
 			}
 			
 			if(!paramVals["seed"]) {
@@ -211,7 +213,8 @@
 		function addLayer() {
 			disableActionButtons(true);
 			layerList.push({});
-			$("#" + layerList[curLayerIdx].listItemId).removeClass("active");
+			if(curLayerIdx >= 0)
+				$("#" + layerList[curLayerIdx].listItemId).removeClass("active");
 			curLayerIdx = layerList.length - 1;
 			var listItemId = "lla" + nextLayerIdx;
 			layerList[curLayerIdx] = {
@@ -276,7 +279,8 @@
 				$("#refreshButton").prop("disabled", true);
 				$("#downloadButton").prop("disabled", true);
 			}
-			restoreLayer("lla" + (curLayerIdx + 1));
+			if(layerList.length > 0)
+				restoreLayer(layerList[curLayerIdx].listItemId);
 			renderData();
 		}
 
@@ -525,7 +529,7 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Seed value:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Tooltip on bottom" style="display: inline-block"></div>
+										Seed value:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="No input will randomize data, any other value reproduces the same data" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="number" id="seed" name="seed"></input>
@@ -536,19 +540,19 @@
 								
 								<tr>
 									<td colspan="4" align="center">
-										Affine transformation parameters<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Tooltip on bottom" style="display: inline-block"></div>
+										Affine transformation parameters<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Identity matrix (a1, a5 = 1; others = 0) maintains same values" style="display: inline-block"></div>
 									</td>
 								</tr>
 								
 								<tr>
 									<td class="optionlabel1">
-										a1:
+										a1 (Sx):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Scaling x-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="text" id="a1" name="a1"></input>
 									</td>
 									<td class="optionlabel2">
-										a2:
+										a2 (Rx):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Rotation x-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="text" id="a2" name="a2"></input>
@@ -557,13 +561,13 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										a3:
+										a3 (Tx):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Translation x-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="text" id="a3" name="a3"></input>
 									</td>
 									<td class="optionlabel2">
-										a4:
+										a4 (Ry):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Rotation y-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="text" id="a4" name="a4"></input>
@@ -572,13 +576,13 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										a5:
+										a5 (Sy):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Scaling y-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="text" id="a5" name="a5"></input>
 									</td>
 									<td class="optionlabel2">
-										a6:
+										a6 (Ty):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Translation y-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="text" id="a6" name="a6"></input>

@@ -30,6 +30,8 @@ class Generator(ABC):
         return mu + sigma * math.sqrt(-2 * math.log(rand.random())) * math.sin(2 * math.pi * rand.random())
 
     def is_valid_point(self, point):
+        if(self.affineMatrix is not None):
+            return True
         for x in point.coordinates:
             if not (0 <= x <= 1):
                 return False
