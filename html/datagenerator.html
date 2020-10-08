@@ -12,6 +12,7 @@
 	<link href="//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css" rel="stylesheet">
 	<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 	<style type="text/css">
 		.headcol { vertical-align: top; text-align: right; }
 		.widgettab { vertical-align: top; text-align: left; }
@@ -33,7 +34,7 @@
 		}
 	</style>
 
-	<title>Spatial Data Generator</title>
+	<title>SpiderWeb: A Spatial Data Generator on the Web</title>
 	
 	<script>
 		var colorNames = ["blue", "red", "green", "orange", "black", "purple", "gray", "brown", "gold"];
@@ -188,10 +189,14 @@
 				paramVals["seed"] = d.getTime();
 			}
 			
-			if(forPlink)
-				var url = "http://localhost/datagenerator.html?";
-			else
-				var url = "http://localhost/cgi/generator.py?";
+			var curUrl = window.location.href;
+			if(forPlink) {
+				var url = curUrl;
+			}
+			else {
+				var endPos = curUrl.indexOf("index.html");
+				var url = curUrl.substring(0, endPos) + "cgi/generator.py?";
+			}
 			for(var key in paramVals) {
 				url += (key + "=" + encodeURIComponent(paramVals[key]) + "&");
 			}						
@@ -222,7 +227,8 @@
 				name: "Layer " + (nextLayerIdx),
 				enabled: true,
 				layerData: null,
-				layerParams: formToJSON()
+				layerParams: formToJSON(),
+				drawColor: null
 			}
 			nextLayerIdx++;
 			var listHTML = '<a id="' + listItemId 
@@ -231,12 +237,14 @@
                 + '<label>'
 				+ '<input class="" type="checkbox" id="' + listItemId + 'check" checked/>'
                 + layerList[curLayerIdx].name + '</label>'
-				+ '<button type="button" id="' + listItemId + 'button">X</button>'
+				// + '<button type="button" id="' + listItemId + 'buttonR"><span class="ui-icon ui-icon-pin-s"></span></button>'
+				// + '<button type="submit" form="datareq" id="' + listItemId + 'button"><span class="ui-icon ui-icon-arrowrefresh-1-e"></span></button>'
+				+ '<button type="button" id="' + listItemId + 'buttonX"><span class="ui-icon ui-icon-close"></span></button>'
                 + '</div></a>';
 			$("#layerList").append(listHTML);
 			$("#" + listItemId).click(function (e) {restoreLayer(listItemId);});
 			$("#" + listItemId + "check").click(function (e) {toggleLayerVisibility(listItemId);});
-			$("#" + listItemId + "button").click(function (e) {deleteLayer(listItemId);});
+			$("#" + listItemId + "buttonX").click(function (e) {deleteLayer(listItemId);});
 		}
 
 		function restoreLayer(listItemId) {
@@ -265,6 +273,8 @@
 		}
 
 		function deleteLayer(listItemId) {
+			if(!confirm("Are you sure you want to delete this layer?"))
+				return;
 			var layerIndex = -1;
 			layerList.forEach(function (item, index) {
 				if(item["listItemId"] == listItemId) {
@@ -289,7 +299,7 @@
 			if (dataURL == null)
 				return;
 			var permalink = buildURL(false, true);
-			$("#plink").val(permalink);
+			$("#plink").html(permalink);
 
 			var XHR = new XMLHttpRequest();
 			XHR.addEventListener( 'load', function(event) {
@@ -299,24 +309,25 @@
 				}
 				$("#dataContent").html("");
 
+				layerList[curLayerIdx].drawColor = colorNames[curColorIdx % colorNames.length];
                 var vectorLayer = new ol.layer.Vector({
                     source: new ol.source.Vector({
                         features: (new ol.format.WKT()).readFeatures(XHR.responseText)
                     }),
 					style: new ol.style.Style({
 						stroke: new ol.style.Stroke({
-							color: colorNames[curColorIdx % colorNames.length],
+							color: layerList[curLayerIdx].drawColor,
 							width: 1
 						}), 
 						image: new ol.style.Circle({
 							radius: 2,
 							fill: new ol.style.Fill({
-								color: colorNames[curColorIdx % colorNames.length]
+								color: layerList[curLayerIdx].drawColor
 							})
 						}),
 					})
                 });
-                layerList[curLayerIdx].layerData = vectorLayer;
+				layerList[curLayerIdx].layerData = vectorLayer;
 				renderData();
 				disableActionButtons(false);
 			});
@@ -336,6 +347,16 @@
 			});
 			
 			var map = new ol.Map({
+				controls: ol.control.defaults().extend([
+					new ol.control.ZoomToExtent({
+					extent: [
+						-0.05,
+						-0.05,
+						1.05,
+						1.05 ],
+					label: "C",
+					tipLabel: "Re-center map"
+				}) ]),
 				target: 'dataContent',
 				layers: newLayers,
 				view: view
@@ -417,13 +438,20 @@
 				}
 			}
 		}
+
+		function copyClipboard() {
+			var copyText = document.getElementById("plink");
+			copyText.select();
+  			copyText.setSelectionRange(0, 99999);
+			document.execCommand("copy");
+		}
 		
 	</script>
 
 </head>
 
 <body style="background-color:#f2f4f7;" onload="setupSubmitAndRender()">
-	<h1 class="pagehead">Spatial Data Generator</h1>
+	<h1 class="pagehead">SPIDER: Spatial Data Generator</h1>
 	
 	<table class="bigtab">
 		<tbody>
@@ -434,7 +462,7 @@
 							<tbody>
 								<tr>
 									<td class="optionlabel1">
-										Distribution:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="The distribution type of the data" style="display: inline-block"></div>
+										Distribution: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="The distribution type of the data" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<select id="dist" name="dist" onchange="updateInputs()">
@@ -447,7 +475,7 @@
 										</select>
 									</td>
 									<td class="optionlabel2">
-										Cardinality:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="The number of records to generate" style="display: inline-block"></div>
+										Cardinality: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="The number of records to generate" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="number" value="100" id="card" name="card"></input>
@@ -457,7 +485,7 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Dimension:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="The dimensionality of the generated geometries. Only 2D data is supported for rendering." style="display: inline-block"></div>
+										Dimension: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="The dimensionality of the generated geometries. Only 2D data is supported for rendering." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField"  type="number" value="2" id="dim" name="dim"></input>
@@ -465,7 +493,7 @@
 									</td>					
 									
 									<td class="optionlabel2">
-										Format:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Output format of data" style="display: inline-block"></div>
+										Format: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Output format of data" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<select id="fmt" name="fmt">
@@ -478,14 +506,14 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Percentage:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Diagonal distribution: The percentage (ratio) of the points that are exactly on the line." style="display: inline-block"></div>
+										Percentage: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Diagonal distribution: The percentage (ratio) of the points that are exactly on the line." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField"  type="text" value="0.5" id="per" name="per"></input>
 										<div class="inputError" id="perInputError"></div>
 									</td>
 									<td class="optionlabel2">
-										Buffer:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Diagonal distribution: The size of the buffer around the line where additional geometries are scattered." style="display: inline-block"></div>
+										Buffer: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Diagonal distribution: The size of the buffer around the line where additional geometries are scattered." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField"  type="text" value="0.5" id="buf" name="buf"></input>
@@ -495,31 +523,31 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Probability:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Bit distribution: The probability of setting each bit independently to 1." style="display: inline-block"></div>
+										Probability: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Bit distribution: The probability of setting each bit independently to 1." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
-										<input class="inputField"  type="text" value="0.5" id="prob" name="prob"></input>
+										<input class="inputField"  type="text" value="0.2" id="prob" name="prob"></input>
 										<div class="inputError" id="probInputError"></div>
 									</td>
 									<td class="optionlabel2">
-										Digits:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Bit distribution: The number of binary digits after the fraction point." style="display: inline-block"></div>
+										Digits: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Bit distribution: The number of binary digits after the fraction point." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
-										<input class="inputField"  type="number" value="2" id="dig" name="dig"></input>
+										<input class="inputField"  type="number" value="10" id="dig" name="dig"></input>
 										<div class="inputError" id="digInputError"></div>
 									</td>
 								</tr>
 								
 								<tr>
 									<td class="optionlabel1">
-										Split range:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Parcel distribution: The minimum tiling range for splitting a box. r = 0 indicates that all the ranges are allowed while r = 0.5 indicates that a box is always split into half." style="display: inline-block"></div>
+										Split range: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Parcel distribution: The minimum tiling range for splitting a box. r = 0 indicates that all the ranges are allowed while r = 0.5 indicates that a box is always split into half." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField"  type="text" value="0.5" id="sran" name="sran"></input>
 										<div class="inputError" id="sranInputError"></div>
 									</td>
 									<td class="optionlabel2">
-										Dither:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point." style="display: inline-block"></div>
+										Dither: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point." style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField"  type="text" value="0.5" id="dith" name="dith"></input>
@@ -529,7 +557,7 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										Seed value:<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="No input will randomize data, any other value reproduces the same data" style="display: inline-block"></div>
+										Seed value: <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="No input will randomize data, any other value reproduces the same data" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="number" id="seed" name="seed"></input>
@@ -540,19 +568,19 @@
 								
 								<tr>
 									<td colspan="4" align="center">
-										Affine transformation parameters<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Identity matrix (a1, a5 = 1; others = 0) maintains same values" style="display: inline-block"></div>
+										Affine transformation parameters <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Identity matrix (a1, a5 = 1; others = 0) maintains same values" style="display: inline-block"></div>
 									</td>
 								</tr>
 								
 								<tr>
 									<td class="optionlabel1">
-										a1 (Sx):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Scaling x-axis" style="display: inline-block"></div>
+										a1 (Sx): <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Scaling x-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="text" id="a1" name="a1"></input>
 									</td>
 									<td class="optionlabel2">
-										a2 (Rx):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Rotation x-axis" style="display: inline-block"></div>
+										a2 (Rx): <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Rotation x-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="text" id="a2" name="a2"></input>
@@ -561,13 +589,13 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										a3 (Tx):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Translation x-axis" style="display: inline-block"></div>
+										a3 (Tx): <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Translation x-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="text" id="a3" name="a3"></input>
 									</td>
 									<td class="optionlabel2">
-										a4 (Ry):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Rotation y-axis" style="display: inline-block"></div>
+										a4 (Ry): <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Rotation y-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="text" id="a4" name="a4"></input>
@@ -576,13 +604,13 @@
 								
 								<tr>
 									<td class="optionlabel1">
-										a5 (Sy):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Scaling y-axis" style="display: inline-block"></div>
+										a5 (Sy): <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Scaling y-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata1">
 										<input class="inputField" type="text" id="a5" name="a5"></input>
 									</td>
 									<td class="optionlabel2">
-										a6 (Ty):<div class="ui-icon ui-icon-info" data-toggle="tooltip" data-placement="bottom" title="Translation y-axis" style="display: inline-block"></div>
+										a6 (Ty): <div class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="Translation y-axis" style="display: inline-block"></div>
 									</td>
 									<td class="optiondata2">
 										<input class="inputField" type="text" id="a6" name="a6"></input>
@@ -601,13 +629,13 @@
 										<table>
 											<tr>
 												<td>
-													<button type="button" id="downloadButton" onclick="submitAndDownload()">Download Layer</button>
+													<button type="button" id="addLayerButton" onclick="curColorIdx++; addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
 												</td>
 												<td>
 													<button type="submit" id="refreshButton">Refresh Layer</button>
 												</td>
 												<td>
-													<button type="button" id="addLayerButton" onclick="curColorIdx++; addLayer(); if(validInputs()) submitAndRender();">Add Layer</button>
+													<button type="button" id="downloadButton" onclick="submitAndDownload()">Download Layer</button>
 												</td>
 											</tr>
 										</table>
@@ -619,7 +647,7 @@
 										Permalink:
 									</td>
 									<td >
-										<input type="text" id="plink" name="plink" value="" readonly></input>
+										<textarea type="text" id="plink" name="plink" rows="2" cols="17" readonly></textarea>  <i class="fa fa-files-o" onclick="copyClipboard()" data-toggle="tooltip" data-placement="bottom" title="Copy to clipboard" style="display: inline-block"></i>
 									</td>
 								</tr>
 							</tbody>
@@ -645,7 +673,7 @@
 		</tbody>
 	</table>
 	<h4 class="pagehead">Developed at UC Riverside Big Data Lab</h4>
-	<h5 class="pagehead">By Puloma Katiyar and Dr. Ahmed Eldawy</h5>
+	<h5 class="pagehead">By Puloma Katiyar, Tin Vu, Ahmed Eldawy, Sara Migliorini, Alberto Belussi</h5>
 	
 	<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
 	<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
