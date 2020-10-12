@@ -499,7 +499,7 @@ def main():
     remote_file_name = "dat" + str(rand.randint(0,1000000)) + "." + output_format + ".bz2"
     
     if strm == "cfile": # Cfile indicates compressed data download
-        sys.stdout.buffer.write(bytes("Content-type:application/x-bzip2" + '\r\n', 'utf-8'))
+        sys.stdout.buffer.write(bytes("Content-type:text/html" + '\r\n', 'utf-8'))
         sys.stdout.buffer.write(bytes("Content-Disposition: attachment; filename=\"" + remote_file_name + "\"" + '\r\n', 'utf-8'))      
     else:
         sys.stdout.buffer.write(bytes("Content-type:text/html;charset=utf-8\r\n\r\n", 'utf-8'))
